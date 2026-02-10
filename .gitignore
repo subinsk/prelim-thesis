@@ -1,0 +1,53 @@
+# =========================
+# Python / Environment
+# =========================
+venv/
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# OS / Editor junk
+# =========================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# =========================
+# Data (IMPORTANT)
+# =========================
+data/raw/
+data/processed/
+
+# If you want to keep folder structure but not data:
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# =========================
+# Model artifacts
+# =========================
+results/models/
+*.pth
+*.pt
+
+# =========================
+# Logs / Outputs
+# =========================
+results/logs/
+*.log
+
+# =========================
+# Large binary files
+# =========================
+*.tar
+*.npy
+*.png
+
+# (Optional: keep small example images)
+# !data/processed/images/sample_*.png
