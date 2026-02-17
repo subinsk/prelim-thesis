@@ -1,0 +1,18 @@
+# Swin Transformer specific configuration
+
+model:
+  name: "swin_tiny_patch4_window7_224"
+  pretrained: true
+  num_classes: 2
+  dropout: 0.1
+
+training:
+  batch_size: 2  # Smaller batch for ViT
+  epochs: 30
+  learning_rate: 0.00005  # Lower LR for ViT
+  weight_decay: 0.05
+  optimizer: "adamw"
+
+xai:
+  gradcam:
+    target_layer: "layers.3.blocks.1.norm2"  # Last attention block
