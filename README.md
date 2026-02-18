@@ -1,203 +1,109 @@
-# Explainable AI for Docker Container Malware Detection
+# Knowledge Conflicts in Multi-Hop Reasoning
 
-My thesis work on using Vision Transformers and XAI techniques to detect malware in Docker containers.
+Characterizing how knowledge conflicts propagate through multi-hop reasoning chains when retrieved context contradicts an LLM's parametric memory.
 
-**Supervisor:** Dr. Ferdous Ahmed Barbhuiya
-**IIIT Guwahati** | Feb - Jun 2026
+## Key Findings
 
-## What's This About?
+| Model | No Conflict | Conflict@Hop1 | Conflict@Hop2 |
+|-------|-------------|---------------|---------------|
+| Llama-3.3-70B | 71.0% | 42.0% (↓29pp) | 45.0% (↓26pp) |
+| Llama-3.1-8B | 53.0% | 37.0% (↓16pp) | 30.0% (↓23pp) |
 
-I'm building on the [Nousias et al. (2025)](https://arxiv.org/abs/2504.03238) paper that converts Docker containers to images and uses CNNs to detect malware. The problem is - their model is a black box. You have no idea WHY it thinks a container is malicious.
-
-My work adds:
-- Explainability (GradCAM, SHAP, LIME) to show what the model is actually looking at
-- Vision Transformers (Swin, ViT) - nobody's tried these on container images yet
-- A novel way to map the attention back to actual files in the container (using Hilbert curve inverse mapping)
-
-Basically, instead of just "this is malware", we can now say "this is malware because of these specific bytes in /usr/bin/httpd".
-
-## Questions I'm Trying to Answer
-
-1. Do Vision Transformers work better than CNNs for this task?
-2. Which XAI method (GradCAM, SHAP, LIME) actually highlights the real malware regions?
-3. Can we map model attention back to specific malicious files?
-4. Do transformers focus on more useful forensic features than CNNs?
-
-## What I'm Contributing
-
-- First proper XAI evaluation on container malware images (with actual metrics)
-- Testing Vision Transformers on containers (nobody's done this yet)
-- Inverse Hilbert mapping to go from heatmap → actual files (completely new)
-- Something security analysts can actually use in practice
-
-## Dataset
-
-Using **COSOCO** from [HuggingFace](https://huggingface.co/datasets/k3ylabs/cosoco-image-dataset)
-- 3,364 images (2,225 clean, 1,139 compromised)
-- 10 malware families: Mirai, Gafgyt, CoinMiner, etc.
-- Ground-truth masks included (huge win!)
-- License: CC-BY-4.0
-
-## 🏗️ Project Structure
-
-```
-prelim-thesis/
-├── README.md                    # This file
-├── requirements.txt             # Python dependencies
-├── .gitignore                   # Git ignore rules
-│
-├── configs/                     # Configuration files
-│   ├── config.yaml              # Main config
-│   ├── resnet_config.yaml       # ResNet-specific
-│   └── swin_config.yaml         # Swin-specific
-│
-├── src/                         # Source code
-│   ├── data/                    # Dataset and dataloaders
-│   ├── models/                  # Model architectures
-│   ├── xai/                     # XAI implementations
-│   ├── hilbert/                 # Hilbert mapping
-│   └── utils/                   # Utilities
-│
-├── experiments/                 # Training scripts
-│   ├── train.py                 # Training script
-│   ├── evaluate.py              # Evaluation script
-│   └── explain.py               # XAI generation
-│
-├── notebooks/                   # Jupyter notebooks
-├── thesis/                      # LaTeX thesis
-├── outputs/                     # Results and models
-└── docs/                        # Documentation
-```
+- Conflicts cause **16-29 percentage point accuracy drops** (p < 0.05)
+- Hop 1 conflicts are more damaging for larger models
+- Smaller models are more vulnerable overall but show different conflict patterns
 
 ## Setup
 
-Need:
-- Python 3.9+
-- GPU with 16GB VRAM (using Kaggle T4 for now)
-- 16GB RAM minimum
-
 ```bash
-# Clone repo
-git clone https://github.com/YOUR_USERNAME/prelim-thesis.git
-cd prelim-thesis
-
-# Setup environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# Install everything
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Linux/Mac
 pip install -r requirements.txt
+cp .env.example .env
+# Add your Groq API key to .env (https://console.groq.com/)
+python test_setup.py
 ```
 
-Get the dataset:
-```bash
-from datasets import load_dataset
-dataset = load_dataset('k3ylabs/cosoco-image-dataset')
-```
+## Run Experiments
 
-## 💻 Usage
+You can run experiments either via **Python scripts** (CLI) or **Jupyter notebooks** (interactive). Pick whichever suits your workflow.
 
-### Training a Model
-
-```bash
-# Train ResNet18 baseline
-python experiments/train.py --config configs/resnet_config.yaml
-
-# Train Swin Transformer
-python experiments/train.py --config configs/swin_config.yaml
-
-# Train with custom parameters
-python experiments/train.py --model resnet18 --epochs 50 --batch-size 8 --lr 0.0001
-```
-
-### Evaluation
+### Option A — Python Scripts
 
 ```bash
-# Evaluate on test set
-python experiments/evaluate.py --checkpoint outputs/models/best_resnet18.pth
+# Run primary experiment (single model, 100 examples, 3 conditions)
+python experiments/run_conflict_experiment.py
 
-# Generate confusion matrix and metrics
-python experiments/evaluate.py --checkpoint outputs/models/swin_tiny.pth --test-only
+# Run multi-model comparison (skips models with existing results)
+python experiments/run_model_comparison.py
+
+# Extract qualitative examples
+python experiments/extract_qualitative.py
+
+# Generate figures from results
+python src/analysis/visualize.py
 ```
 
-### Generate XAI Explanations
+### Option B — Jupyter Notebooks
 
 ```bash
-# Generate GradCAM visualization
-python experiments/explain.py --checkpoint outputs/models/best_resnet18.pth --method gradcam --sample-idx 0
-
-# Generate all XAI methods
-python experiments/explain.py --checkpoint outputs/models/swin_tiny.pth --method all
-
-# Generate forensic report
-python experiments/explain.py --checkpoint outputs/models/best_resnet18.pth --forensic
+jupyter notebook
 ```
 
-## 📈 Results (To Be Updated)
+| Notebook | Purpose |
+|----------|---------|
+| `notebooks/01_explore_results.ipynb` | Browse results, regenerate charts, inspect individual predictions |
+| `notebooks/02_run_model_comparison.ipynb` | Run new model experiments and generate comparison figures interactively |
 
-### Classification Performance
+## Project Structure
 
-| Model           | Accuracy | Precision | Recall | F1-Score |
-|----------------|----------|-----------|--------|----------|
-| ResNet18       | TBD%     | TBD       | TBD    | TBD      |
-| Swin-Tiny      | TBD%     | TBD       | TBD    | TBD      |
-| ViT-Small      | TBD%     | TBD       | TBD    | TBD      |
+```
+src/
+  data/
+    hotpotqa_loader.py       # Load HotpotQA, extract bridge questions
+    conflict_injector.py     # Entity substitution for conflict injection
+  inference/
+    groq_client.py           # Groq API wrapper with rate limit handling
+    prompt_templates.py      # CoT prompts and answer extraction
+  evaluation/
+    metrics.py               # Answer checking (correct, CFR, POR)
+  analysis/
+    visualize.py             # Publication-quality figures
 
-### XAI Evaluation
+experiments/
+  run_conflict_experiment.py # Main experiment (single model)
+  run_model_comparison.py    # Multi-model comparison runner
+  extract_qualitative.py     # Extract examples for slides
 
-| Method    | Mean IoU | Pointing Game Acc |
-|-----------|----------|-------------------|
-| GradCAM   | TBD      | TBD%             |
-| HiResCAM  | TBD      | TBD%             |
-| SHAP      | TBD      | TBD%             |
-| LIME      | TBD      | TBD%             |
+notebooks/
+  01_explore_results.ipynb       # Interactive result explorer
+  02_run_model_comparison.ipynb  # Run models & generate comparisons
 
-## 📝 Thesis Writing
-
-The LaTeX thesis is in the `thesis/` directory:
-
-```bash
-# Compile thesis
-cd thesis
-pdflatex main.tex
-bibtex main
-pdflatex main.tex
-pdflatex main.tex
+outputs/
+  results/<model-id>/        # Per-model experiment results (JSON)
+  figures/                   # Generated charts (PNG)
+  qualitative_examples.md    # Slide-ready example breakdowns
 ```
 
-## Timeline
+## Adding a New Model
 
-**Phase 1 (Weeks 1-8):** Mid-sem prep
-- Literature review
-- Get ResNet18 baseline working (match paper's F1 ≈ 0.736)
-- Train Swin-Tiny
-- Basic GradCAM visualizations
+Edit `MODELS` in `experiments/run_model_comparison.py`:
 
-**Phase 2 (Weeks 9-16):** End-sem
-- Hilbert inverse mapping (the hard part)
-- SHAP and LIME
-- Forensic case studies
-- All experiments and write-up
+```python
+MODELS = [
+    {"id": "llama-3.3-70b-versatile", "label": "Llama-3.3-70B"},
+    {"id": "llama-3.1-8b-instant",    "label": "Llama-3.1-8B"},
+    {"id": "your-new-model-id",       "label": "Display Name"},  # add here
+]
+```
 
-## 📚 Key References
+Then run `python experiments/run_model_comparison.py` — it only runs models without existing results.
 
-1. Nousias et al. (2025) - "Container Malware Detection via Image-Based Deep Learning" [arXiv:2504.03238]
-2. Nataraj et al. (2011) - "Malware Images: Visualization and Automatic Classification"
-3. Selvaraju et al. (2017) - "Grad-CAM: Visual Explanations from Deep Networks"
-4. Liu et al. (2021) - "Swin Transformer: Hierarchical Vision Transformer"
+## Methodology
 
-## Thanks
-
-- Dr. Ferdous Ahmed Barbhuiya (supervisor)
-- K3yLabs for releasing COSOCO dataset
-- Nousias et al. for the base paper
-
-## Links
-
-- [COSOCO Dataset](https://huggingface.co/datasets/k3ylabs/cosoco-image-dataset)
-- [Base Paper](https://arxiv.org/abs/2504.03238)
-- [PyTorch GradCAM](https://github.com/jacobgil/pytorch-grad-cam)
-
----
-
-**Status:** Setting up (Feb 2026)
+1. **Dataset**: HotpotQA bridge questions (2-hop reasoning)
+2. **Conflict Injection**: Entity substitution — replace correct answer with plausible fake in one supporting document
+3. **Conditions**: No conflict (baseline), conflict at hop 1, conflict at hop 2
+4. **Metrics**: Accuracy, Context-Following Rate (CFR), Parametric-Override Rate (POR)
+5. **Inference**: Chain-of-Thought prompting, temperature=0

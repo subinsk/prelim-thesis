@@ -1,102 +1,43 @@
-# ==================== Internal Docs ====================
-# Planning, meeting notes, internal progress tracking (not for public repo)
+# ========== INTERNAL DOCS (IMPORTANT!) ==========
 .docs-internal/
-.claude/
 
-# ==================== Data ====================
-# Dataset files (too large for GitHub)
+# ========== API KEYS ==========
+.env
+.env.local
+*.key
+
+# ========== DATA ==========
 data/
-!data/.gitkeep
-*.tar.gz
-*.zip
-*.tar
-.hf_cache/
-*/.hf_cache/
-.cache/
-*/.cache/
 
-# ==================== Models & Outputs ====================
-# Model checkpoints (too large)
+# ========== OUTPUTS ==========
+outputs/results/
 *.pth
 *.pt
-*.onnx
-*.h5
-outputs/
-!outputs/.gitkeep
-!outputs/README.md
 
-# ==================== Python ====================
-# Byte-compiled files
+# ========== PYTHON ==========
 __pycache__/
-*.py[cod]
-*$py.class
-
-# Virtual environments
+*.pyc
+.ipynb_checkpoints/
 venv/
-env/
-.env
 .venv/
 
-# Jupyter
-.ipynb_checkpoints/
-*.ipynb_checkpoints
+# ========== LATEX ==========
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+thesis/*.pdf
 
-# Distribution
-*.egg-info/
-dist/
-build/
+# ========== OS ==========
+.DS_Store
+Thumbs.db
 
-# ==================== LaTeX ====================
-# Build files
-thesis/*.aux
-thesis/*.log
-thesis/*.out
-thesis/*.toc
-thesis/*.lof
-thesis/*.lot
-thesis/*.bbl
-thesis/*.blg
-thesis/*.synctex.gz
-thesis/*.fdb_latexmk
-thesis/*.fls
-thesis/*.nav
-thesis/*.snm
-thesis/*.vrb
-thesis/chapters/*.aux
-
-# ==================== IDE ====================
-# VS Code
+# ========== IDE ==========
 .vscode/settings.json
-.vscode/launch.json
-.vscode/*.code-workspace
-
-# PyCharm
 .idea/
 
-# ==================== OS ====================
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# ==================== Misc ====================
-# Logs
-*.log
-logs/
-
-# Temporary files
-*.tmp
-*.temp
-.cache/
-
-# WandB (optional - can track if you want)
-wandb/
-
-# Large output files
-outputs/explanations/*.png
-outputs/figures/high_res/
+# ========== CLAUDE ==========
+.claude/
