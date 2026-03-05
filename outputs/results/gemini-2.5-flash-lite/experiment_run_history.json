@@ -1,0 +1,24 @@
+[
+  {
+    "run_number": 1,
+    "status": "aborted",
+    "n_examples": 0,
+    "start_time": "2026-03-05T12:40:52.592577",
+    "end_time": "2026-03-05T12:40:56.027930",
+    "duration_seconds": 3.4,
+    "details": "User pressed Ctrl+C",
+    "model_id": "gemini-2.5-flash-lite",
+    "experiment": "experiment"
+  },
+  {
+    "run_number": 2,
+    "status": "completed",
+    "n_examples": 499,
+    "start_time": "2026-03-05T12:47:31.963887",
+    "end_time": "2026-03-05T13:35:03.437799",
+    "duration_seconds": 2851.5,
+    "details": "",
+    "model_id": "gemini-2.5-flash-lite",
+    "experiment": "experiment"
+  }
+]

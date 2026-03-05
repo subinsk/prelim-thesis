@@ -198,4 +198,9 @@ def run_experiment(n_examples: int = 100, save_results: bool = True):
 
 
 if __name__ == "__main__":
-    metrics, results = run_experiment(n_examples=100)
+    import argparse
+    parser = argparse.ArgumentParser(description="Single-model conflict experiment")
+    parser.add_argument('--n', type=int, default=500, help="Number of examples (default: 500)")
+    args = parser.parse_args()
+
+    metrics, results = run_experiment(n_examples=args.n)

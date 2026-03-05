@@ -1,0 +1,11 @@
+{
+  "completed_idx": 0,
+  "raw_results": {
+    "no_conflict": [],
+    "conflict_hop1": [],
+    "conflict_hop2": []
+  },
+  "timestamp": "2026-03-05T12:38:38.881022",
+  "model_id": "gemini-1.5-flash",
+  "experiment": "experiment"
+}

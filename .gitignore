@@ -7,10 +7,12 @@
 *.key
 
 # ========== DATA ==========
-data/
+/data/
+
+# ========== CACHE ==========
+.cache/
 
 # ========== OUTPUTS ==========
-outputs/results/
 *.pth
 *.pt
 
