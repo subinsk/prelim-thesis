@@ -42,6 +42,7 @@ MODELS = [
     {"id": "llama-3.3-70b-versatile", "label": "Llama-3.3-70B",   "backend": "groq"},
     {"id": "llama-3.1-8b-instant",    "label": "Llama-3.1-8B",    "backend": "groq"},
     {"id": "gemini-2.5-flash-lite",    "label": "Gemini-2.5-Flash-Lite", "backend": "gemini"},
+    {"id": "qwen/qwen3-32b",             "label": "Qwen3-32B",             "backend": "groq"},
 ]
 
 N_EXAMPLES = 500
@@ -94,7 +95,7 @@ def run_experiment_for_model(model_config, loader, examples, n_target):
 
         # Condition 1: No Conflict (baseline)
         prompt = create_cot_prompt(question, doc1, doc2)
-        response = client.generate(prompt)
+        response = client.generate(prompt, max_tokens=1024)
         pred = extract_answer(response)
         result = check_answer(pred, answer)
         result['condition'] = 'no_conflict'
@@ -106,7 +107,7 @@ def run_experiment_for_model(model_config, loader, examples, n_target):
             question, doc1, doc2, answer, conflict_hop=1
         )
         prompt = create_cot_prompt(question, mod_doc1, mod_doc2)
-        response = client.generate(prompt)
+        response = client.generate(prompt, max_tokens=1024)
         pred = extract_answer(response)
         result = check_answer(pred, answer, fake)
         result['condition'] = 'conflict_hop1'
@@ -118,7 +119,7 @@ def run_experiment_for_model(model_config, loader, examples, n_target):
             question, doc1, doc2, answer, conflict_hop=2
         )
         prompt = create_cot_prompt(question, mod_doc1, mod_doc2)
-        response = client.generate(prompt)
+        response = client.generate(prompt, max_tokens=1024)
         pred = extract_answer(response)
         result = check_answer(pred, answer, fake)
         result['condition'] = 'conflict_hop2'

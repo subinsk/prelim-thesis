@@ -1,0 +1,13 @@
+[
+  {
+    "run_number": 1,
+    "status": "completed",
+    "n_examples": 200,
+    "start_time": "2026-03-06T15:09:44.316613",
+    "end_time": "2026-03-06T15:16:45.303728",
+    "duration_seconds": 421.0,
+    "details": "Target 200 reached",
+    "model_id": "llama-3.1-8b-instant",
+    "experiment": "conflict_type_temporal"
+  }
+]

@@ -1,24 +1,5 @@
 {
-  "metrics": {
-    "no_conflict": {
-      "n": 1000,
-      "accuracy": 0.733,
-      "context_following_rate": 0.0,
-      "parametric_override_rate": 0.0
-    },
-    "conflict_hop1": {
-      "n": 1000,
-      "accuracy": 0.477,
-      "context_following_rate": 0.155,
-      "parametric_override_rate": 0.477
-    },
-    "conflict_hop2": {
-      "n": 1000,
-      "accuracy": 0.498,
-      "context_following_rate": 0.187,
-      "parametric_override_rate": 0.498
-    }
-  },
+  "completed_idx": 999,
   "raw_results": {
     "no_conflict": [
       {
@@ -29027,14 +29008,7 @@
       }
     ]
   },
-  "metadata": {
-    "model_id": "llama-3.3-70b-versatile",
-    "experiment": "experiment",
-    "timestamp": "2026-03-06T20:22:51.629552",
-    "conditions": [
-      "no_conflict",
-      "conflict_hop1",
-      "conflict_hop2"
-    ]
-  }
+  "timestamp": "2026-03-06T20:22:51.667652",
+  "model_id": "llama-3.3-70b-versatile",
+  "experiment": "experiment"
 }

@@ -1,0 +1,13 @@
+[
+  {
+    "run_number": 1,
+    "status": "completed",
+    "n_examples": 200,
+    "start_time": "2026-03-06T15:22:34.545232",
+    "end_time": "2026-03-06T15:55:39.733096",
+    "duration_seconds": 1985.2,
+    "details": "Target 200 reached",
+    "model_id": "gemini-2.5-flash-lite",
+    "experiment": "conflict_type_factual"
+  }
+]

@@ -25,8 +25,61 @@ class ConflictInjector:
 
     NUMBERS = [str(n) for n in range(1, 100)]
 
+    # Conflict type constants
+    TYPE_FACTUAL = "factual"
+    TYPE_TEMPORAL = "temporal"
+    TYPE_NUMERICAL = "numerical"
+
     def __init__(self):
         self.substitution_map = {}
+
+    @staticmethod
+    def classify_answer_type(answer: str) -> str:
+        """Classify the answer as factual, temporal, or numerical.
+
+        - temporal: 4-digit years, date strings, year ranges
+        - numerical: pure numbers (with/without commas), numbers with units
+        - factual: everything else (entity names, places, etc.)
+        """
+        answer_stripped = answer.strip()
+
+        # Temporal: 4-digit year
+        if re.match(r'^\d{4}$', answer_stripped):
+            return ConflictInjector.TYPE_TEMPORAL
+
+        # Temporal: date patterns like "January 5, 1990", "5 March 2001", "7 October 1978"
+        month_pattern = (r'(?:January|February|March|April|May|June|July|'
+                         r'August|September|October|November|December)')
+        if re.search(rf'{month_pattern}\s+\d{{1,2}},?\s*\d{{4}}', answer_stripped, re.IGNORECASE):
+            return ConflictInjector.TYPE_TEMPORAL
+        if re.search(rf'\d{{1,2}}\s+{month_pattern}\s+\d{{4}}', answer_stripped, re.IGNORECASE):
+            return ConflictInjector.TYPE_TEMPORAL
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', answer_stripped):
+            return ConflictInjector.TYPE_TEMPORAL
+
+        # Temporal: year ranges like "from 1986 to 2013", "1969 until 1974"
+        if re.search(r'\b\d{4}\b.*\b(?:to|until|through|–|-)\b.*\b\d{4}\b', answer_stripped):
+            return ConflictInjector.TYPE_TEMPORAL
+
+        # Numerical: pure integer/float, possibly with commas (e.g. "9,984", "3,677")
+        if re.match(r'^[\d,]+\.?\d*$', answer_stripped) and re.search(r'\d', answer_stripped):
+            return ConflictInjector.TYPE_NUMERICAL
+
+        # Numerical: number with common suffixes/units
+        if re.match(r'^[\d,]+\.?\d*\s*(?:million|billion|thousand|km|miles|kg|lbs|meters|feet|percent|%|seated|m|ft)$',
+                     answer_stripped, re.IGNORECASE):
+            return ConflictInjector.TYPE_NUMERICAL
+
+        # Numerical: leading number + unit phrase (e.g. "8 km", "250 million")
+        if re.match(r'^\d[\d,]*\.?\d*\s+\S+$', answer_stripped):
+            # Check if the second word looks like a unit
+            parts = answer_stripped.split()
+            if len(parts) == 2 and re.match(r'^(?:km|miles|meters|feet|m|ft|lbs|kg|million|billion|thousand|percent|seated)$',
+                                             parts[1], re.IGNORECASE):
+                return ConflictInjector.TYPE_NUMERICAL
+
+        # Default: factual (entity name, place, etc.)
+        return ConflictInjector.TYPE_FACTUAL
 
     def inject_conflict(
         self,

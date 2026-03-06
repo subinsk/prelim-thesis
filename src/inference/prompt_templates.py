@@ -39,9 +39,16 @@ Answer:"""
     return prompt
 
 
+def strip_think_block(response: str) -> str:
+    """Strip <think>...</think> blocks from reasoning models (e.g. Qwen3)."""
+    import re
+    return re.sub(r'<think>.*?</think>\s*', '', response, flags=re.DOTALL)
+
+
 def extract_answer(response: str) -> str:
     """Extract final answer from model response."""
 
+    response = strip_think_block(response)
     response_lower = response.lower()
 
     # Check for "the answer is X" pattern

@@ -1,0 +1,13 @@
+[
+  {
+    "run_number": 1,
+    "status": "completed",
+    "n_examples": 142,
+    "start_time": "2026-03-06T18:17:38.849306",
+    "end_time": "2026-03-06T18:31:27.753907",
+    "duration_seconds": 828.9,
+    "details": "Target 142 reached",
+    "model_id": "qwen/qwen3-32b",
+    "experiment": "conflict_type_numerical"
+  }
+]
