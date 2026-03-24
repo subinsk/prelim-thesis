@@ -3,12 +3,13 @@ Extract 4-5 clear qualitative examples showing knowledge conflict effects.
 
 Matches experiment results back to HotpotQA data to reconstruct full context,
 then formats for presentation slides.
+
+Updated to use new 5-value extract_supporting_facts and new inject_conflict API.
 """
 
 import json
 import os
 import sys
-import random
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -31,11 +32,11 @@ def find_candidates(data):
     candidates = []
     for i in range(len(baseline)):
         b = baseline[i]
-        h1 = hop1[i]
-        h2 = hop2[i]
+        h1 = hop1[i] if i < len(hop1) else None
+        h2 = hop2[i] if i < len(hop2) else None
 
         # Hop 1 candidate: baseline correct, hop1 wrong, followed fake context
-        if b['correct'] and not h1['correct'] and h1.get('followed_context', False):
+        if h1 and b['correct'] and not h1['correct'] and h1.get('followed_context', False):
             candidates.append({
                 'idx': i,
                 'question': b['question'],
@@ -48,7 +49,7 @@ def find_candidates(data):
             })
 
         # Hop 2 candidate: baseline correct, hop2 wrong, followed fake context
-        if b['correct'] and not h2['correct'] and h2.get('followed_context', False):
+        if h2 and b['correct'] and not h2['correct'] and h2.get('followed_context', False):
             candidates.append({
                 'idx': i,
                 'question': b['question'],
@@ -61,7 +62,7 @@ def find_candidates(data):
             })
 
         # Also collect hallucination cases (baseline correct, conflict wrong, didn't follow context)
-        if b['correct'] and not h1['correct'] and not h1.get('followed_context', False):
+        if h1 and b['correct'] and not h1['correct'] and not h1.get('followed_context', False):
             candidates.append({
                 'idx': i,
                 'question': b['question'],
@@ -73,7 +74,7 @@ def find_candidates(data):
                 'error_type': 'hallucination'
             })
 
-        if b['correct'] and not h2['correct'] and not h2.get('followed_context', False):
+        if h2 and b['correct'] and not h2['correct'] and not h2.get('followed_context', False):
             candidates.append({
                 'idx': i,
                 'question': b['question'],
@@ -90,7 +91,6 @@ def find_candidates(data):
 
 def select_diverse(candidates):
     """Pick 5 diverse examples: mix of hop positions and error types."""
-    # Prioritize followed_context examples (clearer for presentation)
     followed = [c for c in candidates if c['error_type'] == 'followed_context']
     halluc = [c for c in candidates if c['error_type'] == 'hallucination']
 
@@ -152,15 +152,31 @@ def reconstruct_and_format(selected, loader, injector):
 
     for num, cand in enumerate(selected, 1):
         example = examples[cand['idx']]
-        question, doc1, doc2, answer = loader.extract_supporting_facts(example)
+        question, bridge_doc, answer_doc, answer, bridge_entity = loader.extract_supporting_facts(example)
 
-        # Reconstruct conflict
-        mod_doc1, mod_doc2, fake = injector.inject_conflict(
-            question, doc1, doc2, answer, conflict_hop=cand['conflict_hop']
-        )
+        # Reconstruct conflict using new API
+        if cand['conflict_hop'] == 1:
+            target = bridge_entity if bridge_entity else answer
+            mod_doc, fake, ok = injector.inject_conflict(
+                doc=bridge_doc, target_entity=target,
+                question=question, hop=1,
+            )
+            conflict_bridge = mod_doc if ok else bridge_doc
+            conflict_answer = answer_doc
+            if not ok:
+                fake = cand.get('fake', '')
+        else:
+            mod_doc, fake, ok = injector.inject_conflict(
+                doc=answer_doc, target_entity=answer,
+                question=question, hop=2,
+            )
+            conflict_bridge = bridge_doc
+            conflict_answer = mod_doc if ok else answer_doc
+            if not ok:
+                fake = cand.get('fake', '')
 
         # Figure out hop descriptions from the question and docs
-        sf_titles = list(set([sf[0] for sf in example['supporting_facts']]))
+        sf_titles = sorted(set([sf[0] for sf in example['supporting_facts']]))
         hop1_title = sf_titles[0] if len(sf_titles) >= 1 else "Document 1"
         hop2_title = sf_titles[1] if len(sf_titles) >= 2 else "Document 2"
 
@@ -173,22 +189,20 @@ def reconstruct_and_format(selected, loader, injector):
 
         md_output += f"### Baseline (No Conflict)\n"
         md_output += f"| Document | Content |\n|----------|:--------|\n"
-        md_output += f"| Hop 1 | {truncate(doc1)} |\n"
-        md_output += f"| Hop 2 | {truncate(doc2)} |\n\n"
+        md_output += f"| Hop 1 (Bridge) | {truncate(bridge_doc)} |\n"
+        md_output += f"| Hop 2 (Answer) | {truncate(answer_doc)} |\n\n"
         md_output += f"**Model Answer:** {truncate(cand['baseline_pred'], 100)}  \n"
         md_output += f"**Ground Truth:** {answer}  \n"
         md_output += f"**Result:** CORRECT\n\n"
 
-        conflict_doc1 = mod_doc1 if cand['conflict_hop'] == 1 else doc1
-        conflict_doc2 = mod_doc2 if cand['conflict_hop'] == 2 else doc2
         hop1_marker = " **[MODIFIED]**" if cand['conflict_hop'] == 1 else ""
         hop2_marker = " **[MODIFIED]**" if cand['conflict_hop'] == 2 else ""
 
         md_output += f"### With Conflict at Hop {cand['conflict_hop']}\n"
         md_output += f"| Document | Content |\n|----------|:--------|\n"
-        md_output += f"| Hop 1{hop1_marker} | {truncate(conflict_doc1)} |\n"
-        md_output += f"| Hop 2{hop2_marker} | {truncate(conflict_doc2)} |\n\n"
-        md_output += f"**Injected False Info:** \"{answer}\" → \"{fake}\"  \n"
+        md_output += f"| Hop 1{hop1_marker} | {truncate(conflict_bridge)} |\n"
+        md_output += f"| Hop 2{hop2_marker} | {truncate(conflict_answer)} |\n\n"
+        md_output += f"**Injected False Info:** \"{answer}\" -> \"{fake}\"  \n"
         md_output += f"**Model Answer:** {truncate(cand['conflict_pred'], 100)}  \n"
         md_output += f"**Ground Truth:** {answer}  \n"
         md_output += f"**Result:** INCORRECT  \n"
@@ -213,10 +227,10 @@ def reconstruct_and_format(selected, loader, injector):
             'question': question,
             'hop1_title': hop1_title,
             'hop2_title': hop2_title,
-            'hop1_doc_original': doc1,
-            'hop2_doc_original': doc2,
-            'hop1_doc_conflict': conflict_doc1,
-            'hop2_doc_conflict': conflict_doc2,
+            'hop1_doc_original': bridge_doc,
+            'hop2_doc_original': answer_doc,
+            'hop1_doc_conflict': conflict_bridge,
+            'hop2_doc_conflict': conflict_answer,
             'conflict_position': f"hop{cand['conflict_hop']}",
             'original_answer': answer,
             'injected_fake': fake,
@@ -255,9 +269,7 @@ def main():
     print("Reconstructing documents from HotpotQA...")
     loader = HotpotQALoader()
     loader.load()
-    injector = ConflictInjector()
-    # Use fixed seed so the fake answers match the original run
-    random.seed(42)
+    injector = ConflictInjector(seed=42)
 
     md_output, json_output = reconstruct_and_format(selected, loader, injector)
 

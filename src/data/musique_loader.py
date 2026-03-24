@@ -122,13 +122,14 @@ class MuSiQueLoader:
         print(f"Selected {len(filtered)} {n_hops}-hop questions")
         return filtered
 
-    def extract_supporting_docs(self, example: Dict) -> Tuple[str, List[str], str]:
+    def extract_supporting_docs(self, example: Dict) -> Tuple[str, List[str], str, List[str]]:
         """
         Extract the supporting documents for a multi-hop question.
 
         Returns:
-            (question, [doc1_text, doc2_text, ...], answer)
+            (question, [doc1_text, doc2_text, ...], answer, [step1_answer, step2_answer, ...])
             Documents are ordered by hop (using question_decomposition order).
+            step_answers[i] is the intermediate answer for hop i (step_answers[-1] == answer).
         """
         question = example['question']
         answer = example['answer']
@@ -138,8 +139,9 @@ class MuSiQueLoader:
         # Build paragraph lookup by idx
         para_by_idx = {p['idx']: p for p in paragraphs}
 
-        # Get supporting paragraphs in decomposition order
+        # Get supporting paragraphs and intermediate answers in decomposition order
         docs = []
+        step_answers = []
         for step in decomposition:
             para_idx = step.get('paragraph_support_idx')
             if para_idx is not None and para_idx in para_by_idx:
@@ -147,14 +149,18 @@ class MuSiQueLoader:
                 text = para.get('paragraph_text', '')
                 if text:
                     docs.append(text)
+                    step_answers.append(step.get('answer', ''))
 
         # Fallback: use is_supporting flag if decomposition didn't give us docs
         if not docs:
             for p in paragraphs:
                 if p.get('is_supporting', False):
                     docs.append(p.get('paragraph_text', ''))
+            step_answers = [''] * len(docs)
+            if step_answers:
+                step_answers[-1] = answer
 
-        return question, docs, answer
+        return question, docs, answer, step_answers
 
     def extract_supporting_facts_2hop(self, example: Dict) -> Tuple[str, str, str, str]:
         """
@@ -163,7 +169,7 @@ class MuSiQueLoader:
         Returns:
             (question, doc1, doc2, answer)
         """
-        question, docs, answer = self.extract_supporting_docs(example)
+        question, docs, answer, _ = self.extract_supporting_docs(example)
 
         doc1 = docs[0] if len(docs) > 0 else ""
         doc2 = docs[1] if len(docs) > 1 else ""
@@ -188,12 +194,14 @@ if __name__ == "__main__":
         print(f"\nSample 3-hop question: {ex['question']}")
         print(f"Answer: {ex['answer']}")
 
-        question, docs, answer = loader.extract_supporting_docs(ex)
+        question, docs, answer, step_answers = loader.extract_supporting_docs(ex)
         print(f"\nSupporting documents ({len(docs)}):")
         for i, doc in enumerate(docs):
             print(f"  Doc {i+1}: {doc[:100]}...")
+            if i < len(step_answers):
+                print(f"    Step answer: {step_answers[i]}")
 
         # Show decomposition
         print(f"\nDecomposition:")
         for step in ex.get('question_decomposition', []):
-            print(f"  Step {step['id']}: {step['question']} → {step['answer']}")
+            print(f"  Step {step['id']}: {step['question']} -> {step['answer']}")

@@ -1,0 +1,111 @@
+\documentclass[12pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1in,headheight=14.5pt]{geometry}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref}
+\usepackage{natbib}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{setspace}
+\usepackage{fancyhdr}
+\usepackage{float}
+
+\onehalfspacing
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+% === Front Matter (roman numerals) ===
+\pagenumbering{roman}
+
+% === Title Page ===
+\begin{titlepage}
+\centering
+
+\vspace*{1.5cm}
+
+{\huge\textbf{Knowledge Conflicts in\\[0.4cm] Multi-Hop Reasoning}}
+
+\vspace{0.8cm}
+
+{\Large How LLMs Handle Contradictions Between\\[0.2cm] Context and Parametric Memory}
+
+\vspace{1.2cm}
+
+\rule{0.6\textwidth}{0.4pt}
+
+\vspace{1.2cm}
+
+{\large\textbf{Preliminary Thesis Report}}\\[0.4cm]
+{\large CS626 --- Preliminary Thesis}
+
+\vspace{1.5cm}
+
+{\Large\textbf{Subin S K}}\\[0.3cm]
+{\large Roll No: 2521539}\\[0.2cm]
+{\large M.Tech. in Computer Science and Engineering}
+
+\vspace{1.5cm}
+
+{\large Department of Computer Science and Engineering}\\[0.3cm]
+{\large\textbf{Indian Institute of Information Technology, Guwahati}}
+
+\vfill
+
+{\large 2026}
+
+\vspace{1cm}
+
+\end{titlepage}
+\setcounter{page}{1}
+
+% === Abstract Page ===
+\newpage
+\thispagestyle{empty}
+\begin{center}
+{\large\textbf{Abstract}}
+\end{center}
+\vspace{0.5cm}
+
+\noindent
+Retrieval-Augmented Generation (RAG) systems supplement Large Language Models (LLMs) with external context, but what happens when that context contradicts the model's parametric knowledge? We present a systematic study of \emph{knowledge conflicts} in multi-hop question answering, evaluating how four LLMs---Llama-3.3-70B, Llama-3.1-8B, Qwen3-32B, and Gemini-2.5-Flash-Lite---handle contradictions injected at specific positions within 2-hop (HotpotQA) and 3-hop (MuSiQue) reasoning chains. Across 19,416 evaluations, we find that: (1)~a single conflict at the answer-bearing hop reduces accuracy by 40--52 percentage points ($p < 0.0001$, $h > 0.8$); (2)~in both 2-hop and 3-hop chains, answer-bearing hop conflicts are far more damaging than bridge-hop conflicts (CFR 27--36\% vs.\ $\sim$2\%); (3)~in 3-hop chains, conflicts at the final hop cause catastrophic failure (44--47pp drops across all models), while early-hop conflicts cause minimal degradation; (4)~temporal conflicts are the most disruptive (50.8pp average drop, CFR up to 80\%); and (5)~entity popularity influences whether models defer to context or override with parametric memory. Our findings reveal a critical vulnerability in multi-hop RAG pipelines: models are disproportionately dependent on the final-answer document in reasoning chains.
+
+\vspace{1em}
+\noindent\textbf{Keywords:} knowledge conflicts, multi-hop reasoning, retrieval-augmented generation, large language models, question answering
+
+% === Table of Contents ===
+\newpage
+\tableofcontents
+
+% === List of Figures and Tables ===
+\newpage
+\listoffigures
+\listoftables
+
+% === Body (arabic numerals, starting at 1) ===
+\newpage
+\pagenumbering{arabic}
+
+\input{sections/01_introduction}
+\input{sections/02_related_work}
+\input{sections/03_methodology}
+\input{sections/04_results}
+\input{sections/05_conclusion}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

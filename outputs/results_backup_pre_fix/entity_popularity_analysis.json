@@ -1,0 +1,62 @@
+{
+  "high": {
+    "no_conflict": {
+      "n": 28,
+      "accuracy": 0.8214285714285714,
+      "context_following_rate": 0.0,
+      "parametric_override_rate": 0.0
+    },
+    "conflict_hop1": {
+      "n": 28,
+      "accuracy": 0.6428571428571429,
+      "context_following_rate": 0.14285714285714285,
+      "parametric_override_rate": 0.6428571428571429
+    },
+    "conflict_hop2": {
+      "n": 28,
+      "accuracy": 0.5714285714285714,
+      "context_following_rate": 0.14285714285714285,
+      "parametric_override_rate": 0.5714285714285714
+    }
+  },
+  "medium": {
+    "no_conflict": {
+      "n": 14,
+      "accuracy": 1.0,
+      "context_following_rate": 0.0,
+      "parametric_override_rate": 0.0
+    },
+    "conflict_hop1": {
+      "n": 14,
+      "accuracy": 0.7142857142857143,
+      "context_following_rate": 0.21428571428571427,
+      "parametric_override_rate": 0.7142857142857143
+    },
+    "conflict_hop2": {
+      "n": 14,
+      "accuracy": 0.6428571428571429,
+      "context_following_rate": 0.42857142857142855,
+      "parametric_override_rate": 0.6428571428571429
+    }
+  },
+  "low": {
+    "no_conflict": {
+      "n": 836,
+      "accuracy": 0.7117224880382775,
+      "context_following_rate": 0.0,
+      "parametric_override_rate": 0.0
+    },
+    "conflict_hop1": {
+      "n": 836,
+      "accuracy": 0.4677033492822967,
+      "context_following_rate": 0.1507177033492823,
+      "parametric_override_rate": 0.4677033492822967
+    },
+    "conflict_hop2": {
+      "n": 836,
+      "accuracy": 0.48564593301435405,
+      "context_following_rate": 0.18181818181818182,
+      "parametric_override_rate": 0.48564593301435405
+    }
+  }
+}

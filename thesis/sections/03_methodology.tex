@@ -1,0 +1,90 @@
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Experimental Design}
+
+Our experiments follow a controlled within-subjects design. For each set of questions, we evaluate every model under all conflict conditions (baseline, conflict at hop~1, conflict at hop~2, and---for 3-hop---conflict at hop~3), ensuring that observed differences are attributable to the conflict manipulation rather than question difficulty.
+
+The independent variables are: (1)~\textbf{model} (4 LLMs, Table~\ref{tab:models}); (2)~\textbf{dataset} (HotpotQA 2-hop, MuSiQue 3-hop); (3)~\textbf{conflict position} (no conflict, hop~1, hop~2, hop~3); and (4)~\textbf{conflict type} (factual, temporal, numerical). The dependent variables are accuracy, context following rate (CFR), and parametric override rate (POR).
+
+\subsection{Datasets}
+
+\textbf{HotpotQA}~\citep{yang2018hotpotqa}. We use the bridge question subset, which requires reasoning over exactly two supporting documents. Each question follows the pattern: the first hop identifies a bridge entity, and the second hop retrieves the final answer from that entity's article. We filter out comparison questions, as they lack a clear sequential chain. Sample sizes range from 499 to 1,000 per condition depending on the model.
+
+\textbf{MuSiQue}~\citep{trivedi2022musique}. We use the 3-hop subset, where each question requires three sequential reasoning steps with explicit decomposition into sub-questions. This decomposition identifies which document corresponds to each hop, enabling targeted conflict injection. We evaluate 200 questions per condition per model.
+
+\textit{Justification for unequal sample sizes.} Llama-3.3-70B was evaluated on $n$=1,000 (HotpotQA) as our primary model to provide tight confidence intervals. Other models use $n$=500 due to API rate limits on free-tier endpoints. MuSiQue uses $n$=200 across all models, which provides 80\% power to detect medium effect sizes ($h \geq 0.3$) at $\alpha = 0.05$. All statistical comparisons account for differing sample sizes through appropriate confidence interval calculations.
+
+\subsection{Conflict Injection via Entity Substitution}
+
+For a given question and target hop, we replace the gold answer entity in the corresponding supporting document with a plausible but incorrect alternative of the same semantic type:
+
+\begin{enumerate}
+    \item Select the target hop position.
+    \item Identify the gold answer and the supporting document for that hop.
+    \item Generate a plausible substitute entity (e.g., replacing one city with another, one year with a nearby year, one number with a different number).
+    \item Replace all occurrences of the gold answer in the target document with the substitute.
+    \item Present the modified context to the model with the original question.
+\end{enumerate}
+
+This localizes the conflict to a single hop, isolating the effect of position. The non-targeted documents remain unmodified.
+
+\subsection{Conflict Type Classification}
+
+We classify answer entities into three semantic categories using regular expression patterns applied to the gold answer string:
+
+\begin{itemize}
+    \item \textbf{Factual}: Named entities (people, places, organizations)---the default and majority category. \textit{Examples: ``Albert Einstein,'' ``United Kingdom.''}
+    \item \textbf{Temporal}: Dates, years, and time periods, detected via patterns for four-digit years, date expressions, and temporal ranges. \textit{Examples: ``1999,'' ``from 1986 to 2013.''}
+    \item \textbf{Numerical}: Quantities and measurements, detected via patterns for numbers with units, commas, or standalone numeric expressions. \textit{Examples: ``9,984,670,'' ``450 km.''}
+\end{itemize}
+
+From 5,000 bridge questions, we obtained 200 factual, 200 temporal, and 142 numerical examples (numerical entities are scarcer in HotpotQA).
+
+\subsection{Models}
+
+\begin{table}[!ht]
+\centering
+\caption{Models evaluated in this study.}
+\label{tab:models}
+\begin{tabular}{llll}
+\toprule
+\textbf{Model} & \textbf{Parameters} & \textbf{Provider} & \textbf{Notes} \\
+\midrule
+Llama-3.3-70B & 70B & Groq & Open-weight, largest model \\
+Qwen3-32B & 32B & Groq & Reasoning model (\texttt{<think>} traces) \\
+Llama-3.1-8B & 8B & Groq & Open-weight, smallest model \\
+Gemini-2.5-Flash-Lite & Undisclosed & Google & Commercial, lightweight \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All models are accessed via API (Groq for Llama and Qwen; Google AI Studio for Gemini) with \texttt{temperature=0.0} for deterministic outputs and \texttt{max\_tokens=1024} to accommodate Qwen3-32B's extended thinking traces. We use chain-of-thought prompting~\citep{wei2022chain} with a consistent template across all models and conditions. For Qwen3-32B, \texttt{<think>...</think>} blocks are stripped before answer extraction.
+
+\subsection{Evaluation Metrics}
+
+\textbf{Accuracy.} Proportion of responses matching the gold answer under normalized exact match (lowercased, articles and punctuation removed).
+
+\textbf{Context Following Rate (CFR).} Under conflict conditions, the proportion of responses matching the \emph{injected} (substitute) answer:
+\begin{equation}
+    \text{CFR} = \frac{|\{r_i : r_i = a_{\text{injected}}\}|}{|\{r_i : r_i \in \mathcal{R}_{\text{conflict}}\}|}
+\end{equation}
+A high CFR indicates susceptibility to misleading context.
+
+\textbf{Parametric Override Rate (POR).} Under conflict conditions, the proportion of responses matching the \emph{original gold} answer---i.e., the correct answer that was replaced in the context:
+\begin{equation}
+    \text{POR} = \frac{|\{r_i : r_i = a_{\text{gold}}\}|}{|\{r_i : r_i \in \mathcal{R}_{\text{conflict}}\}|}
+\end{equation}
+A high POR indicates reliance on parametric memory. Note that in the conflict condition, accuracy equals POR by definition, since the gold answer is the correct answer and a model can only be ``correct'' by overriding the conflicting context with its parametric knowledge. CFR + POR $\leq 1$, as some responses match neither source, indicating general confusion.
+
+\subsection{Statistical Methods}
+
+We report \textbf{95\% Wilson score confidence intervals} for all proportions, which provide better coverage than the normal approximation near 0 or 1. We quantify practical significance using \textbf{Cohen's $h$}:
+\begin{equation}
+    h = 2 \arcsin(\sqrt{p_1}) - 2 \arcsin(\sqrt{p_2})
+\end{equation}
+interpreted as: $|h| < 0.2$ negligible, $0.2 \leq |h| < 0.5$ small, $0.5 \leq |h| < 0.8$ medium, $|h| \geq 0.8$ large. We use \textbf{chi-square tests} for independence between conditions and \textbf{McNemar's test} for paired comparisons on identical question sets. All $p$-values are two-tailed with $\alpha = 0.05$.
+
+\subsection{Implementation}
+
+The experimental pipeline is implemented in Python with three main components: (1)~\textbf{dataset loaders} that extract and filter bridge/3-hop questions; (2)~a \textbf{conflict injector} that performs entity substitution with type classification; and (3)~an \textbf{experiment runner} with checkpoint/resume support, atomic writes, and graceful shutdown handling. The checkpoint mechanism proved essential, as experiments involving 1,000+ API calls over free-tier endpoints frequently encountered rate limits. All API clients implement a uniform interface with exponential backoff for rate limit handling.

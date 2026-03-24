@@ -6,6 +6,9 @@ Classifies HotpotQA bridge examples by answer type, then runs the standard
 for each type. This reveals whether models handle different conflict types
 differently.
 
+Key fix: uses proper doc ordering (bridge doc = hop 1, answer doc = hop 2)
+and correct entity substitution (bridge entity for hop 1, final answer for hop 2).
+
 Uses the global ExperimentRunner framework for checkpoint/resume.
 
 Usage:
@@ -67,7 +70,7 @@ def split_by_answer_type(loader, examples):
     """Split examples by answer type and return dict of {type: [examples]}."""
     typed = defaultdict(list)
     for ex in examples:
-        _, _, _, answer = loader.extract_supporting_facts(ex)
+        question, bridge_doc, answer_doc, answer, bridge_entity = loader.extract_supporting_facts(ex)
         atype = ConflictInjector.classify_answer_type(answer)
         typed[atype].append(ex)
     return dict(typed)
@@ -78,7 +81,7 @@ def run_typed_experiment(model_config, loader, typed_examples, n_per_type):
 
     model_id = model_config["id"]
     label = model_config["label"]
-    injector = ConflictInjector()
+    injector = ConflictInjector(seed=42)
     client = None  # lazy init
 
     for ctype in CONFLICT_TYPES:
@@ -87,7 +90,7 @@ def run_typed_experiment(model_config, loader, typed_examples, n_per_type):
         n_target = min(n_per_type, n_available)
 
         if n_target == 0:
-            print(f"\n>> SKIP {label} / {ctype} — no examples available")
+            print(f"\n>> SKIP {label} / {ctype} -- no examples available")
             continue
 
         experiment_name = f"conflict_type_{ctype}"
@@ -98,7 +101,7 @@ def run_typed_experiment(model_config, loader, typed_examples, n_per_type):
         )
 
         if runner.is_complete(n_target):
-            print(f"\n>> SKIP {label} / {ctype} — already has >= {n_target} results")
+            print(f"\n>> SKIP {label} / {ctype} -- already has >= {n_target} results")
             continue
 
         # Lazy init client (only when needed)
@@ -107,43 +110,59 @@ def run_typed_experiment(model_config, loader, typed_examples, n_per_type):
 
         def make_process_fn(cl, inj, ld):
             def process_example(idx, example):
-                question, doc1, doc2, answer = ld.extract_supporting_facts(example)
-                if not doc1 or not doc2:
+                question, bridge_doc, answer_doc, answer, bridge_entity = ld.extract_supporting_facts(example)
+                if not bridge_doc or not answer_doc:
                     return None
 
                 out = {}
 
                 # No Conflict
-                prompt = create_cot_prompt(question, doc1, doc2)
+                prompt = create_cot_prompt(question, bridge_doc, answer_doc)
                 response = cl.generate(prompt, max_tokens=1024)
                 pred = extract_answer(response)
                 result = check_answer(pred, answer)
                 result['condition'] = 'no_conflict'
                 result['question'] = question
+                result['response'] = response
                 result['answer_type'] = ConflictInjector.classify_answer_type(answer)
                 out['no_conflict'] = result
 
-                # Conflict@Hop1
-                mod_doc1, mod_doc2, fake = inj.inject_conflict(question, doc1, doc2, answer, conflict_hop=1)
-                prompt = create_cot_prompt(question, mod_doc1, mod_doc2)
-                response = cl.generate(prompt, max_tokens=1024)
-                pred = extract_answer(response)
-                result = check_answer(pred, answer, fake)
-                result['condition'] = 'conflict_hop1'
-                result['question'] = question
-                result['answer_type'] = ConflictInjector.classify_answer_type(answer)
-                out['conflict_hop1'] = result
+                # Conflict@Hop1 (bridge entity in bridge doc)
+                if bridge_entity:
+                    mod_bridge, fake1, ok1 = inj.inject_conflict(
+                        doc=bridge_doc, target_entity=bridge_entity,
+                        question=question, hop=1,
+                    )
+                    if ok1:
+                        prompt = create_cot_prompt(question, mod_bridge, answer_doc)
+                        response = cl.generate(prompt, max_tokens=1024)
+                        pred = extract_answer(response)
+                        result = check_answer(pred, answer, fake1)
+                        result['condition'] = 'conflict_hop1'
+                        result['question'] = question
+                        result['response'] = response
+                        result['answer_type'] = ConflictInjector.classify_answer_type(answer)
+                        result['target_entity'] = bridge_entity
+                        result['injection_succeeded'] = True
+                        out['conflict_hop1'] = result
 
-                # Conflict@Hop2
-                mod_doc1, mod_doc2, fake = inj.inject_conflict(question, doc1, doc2, answer, conflict_hop=2)
-                prompt = create_cot_prompt(question, mod_doc1, mod_doc2)
-                response = cl.generate(prompt, max_tokens=1024)
-                pred = extract_answer(response)
-                result = check_answer(pred, answer, fake)
-                result['condition'] = 'conflict_hop2'
-                result['question'] = question
-                result['answer_type'] = ConflictInjector.classify_answer_type(answer)
-                out['conflict_hop2'] = result
+                # Conflict@Hop2 (final answer in answer doc)
+                mod_answer, fake2, ok2 = inj.inject_conflict(
+                    doc=answer_doc, target_entity=answer,
+                    question=question, hop=2,
+                )
+                if ok2:
+                    prompt = create_cot_prompt(question, bridge_doc, mod_answer)
+                    response = cl.generate(prompt, max_tokens=1024)
+                    pred = extract_answer(response)
+                    result = check_answer(pred, answer, fake2)
+                    result['condition'] = 'conflict_hop2'
+                    result['question'] = question
+                    result['response'] = response
+                    result['answer_type'] = ConflictInjector.classify_answer_type(answer)
+                    result['target_entity'] = answer
+                    result['injection_succeeded'] = True
+                    out['conflict_hop2'] = result
 
                 return out
             return process_example
@@ -161,7 +180,6 @@ def generate_comparison():
     print("GENERATING CONFLICT TYPE COMPARISON")
     print(f"{'='*60}")
 
-    # Collect all results: {model_id: {ctype: metrics}}
     all_data = {}
     for model in MODELS:
         model_id = model['id']
@@ -181,7 +199,6 @@ def generate_comparison():
         print("No conflict type results found. Run experiments first.")
         return
 
-    # ---- Markdown Table ----
     cond_labels = {
         'no_conflict': 'No Conflict',
         'conflict_hop1': 'Conflict@Hop1',
@@ -207,7 +224,6 @@ def generate_comparison():
                 por = f"{m['parametric_override_rate']:.1%}" if m['parametric_override_rate'] > 0 else "-"
                 table += f"| {entry['label']} | {ctype.capitalize()} | {cond_labels[cond]} | {m['n']} | {m['accuracy']:.1%} | {cfr} | {por} |\n"
 
-    # Summary: accuracy drop by type
     table += "\n## Summary: Accuracy Drop by Conflict Type\n\n"
     table += "| Model | Conflict Type | Baseline | Avg Conflict Acc | Drop (pp) |\n"
     table += "|-------|---------------|----------|------------------|-----------|\n"
@@ -231,49 +247,6 @@ def generate_comparison():
     with open(os.path.join(RESULTS_BASE, 'conflict_types_comparison.md'), 'w') as f:
         f.write(table)
     print(f"\n{table}")
-
-    # ---- Grouped Bar Chart: Accuracy by Conflict Type ----
-    fig, axes = plt.subplots(1, len(all_data), figsize=(7 * len(all_data), 7), squeeze=False)
-
-    colors = {'factual': '#3498db', 'temporal': '#e67e22', 'numerical': '#2ecc71'}
-
-    for ax_idx, (model_id, entry) in enumerate(all_data.items()):
-        ax = axes[0][ax_idx]
-        x = np.arange(len(CONDITIONS))
-        width = 0.25
-        type_count = 0
-
-        for ctype in CONFLICT_TYPES:
-            if ctype not in entry['types']:
-                continue
-            metrics = entry['types'][ctype]
-            accs = [metrics.get(c, {}).get('accuracy', 0) * 100 for c in CONDITIONS]
-            n = metrics.get('no_conflict', {}).get('n', 0)
-            offset = (type_count - 1) * width
-            bars = ax.bar(x + offset, accs, width, label=f"{ctype.capitalize()} (n={n})",
-                          color=colors.get(ctype, '#999'), edgecolor='black', linewidth=1)
-            for bar in bars:
-                h = bar.get_height()
-                ax.annotate(f'{h:.1f}%', xy=(bar.get_x() + bar.get_width() / 2, h),
-                            xytext=(0, 3), textcoords="offset points",
-                            ha='center', va='bottom', fontsize=8, fontweight='bold')
-            type_count += 1
-
-        ax.set_ylabel('Accuracy (%)', fontsize=12)
-        ax.set_title(entry['label'], fontsize=14, fontweight='bold')
-        ax.set_xticks(x)
-        ax.set_xticklabels(['No Conflict', 'Conflict\n@Hop1', 'Conflict\n@Hop2'], fontsize=10)
-        ax.set_ylim(0, 100)
-        ax.legend(fontsize=9)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-
-    plt.suptitle('Impact of Knowledge Conflicts by Conflict Type', fontsize=16, fontweight='bold', y=1.02)
-    plt.tight_layout()
-    os.makedirs('outputs/figures', exist_ok=True)
-    plt.savefig('outputs/figures/conflict_types_comparison.png', dpi=300, bbox_inches='tight')
-    plt.close()
-    print("Chart saved to outputs/figures/conflict_types_comparison.png")
 
 
 def parse_args():
@@ -299,14 +272,11 @@ if __name__ == "__main__":
             sys.exit(1)
 
     if not args.compare_only:
-        # Load data
         loader = HotpotQALoader()
         if not os.path.exists('data/hotpotqa/dev.json'):
             loader.download()
         loader.load()
 
-        # Get enough bridge examples to fill all types
-        # Use a large pool since numerical is rare (~3%)
         all_bridge = loader.get_bridge_questions(5000)
         typed_examples = split_by_answer_type(loader, all_bridge)
 
@@ -316,9 +286,7 @@ if __name__ == "__main__":
             target = min(n_per_type, n)
             print(f"  {ctype}: {n} available, will use {target}")
 
-        # Run each model
         for model in models_to_run:
             run_typed_experiment(model, loader, typed_examples, n_per_type)
 
-    # Generate comparison
     generate_comparison()

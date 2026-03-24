@@ -1,0 +1,21 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Large Language Models (LLMs) have demonstrated remarkable capabilities in natural language understanding and generation~\citep{brown2020language}, including complex multi-step reasoning when prompted with chain-of-thought strategies~\citep{wei2022chain}. These models acquire extensive world knowledge during pre-training, storing factual associations within their parameters---commonly referred to as \emph{parametric knowledge}. However, parametric knowledge is inherently static: it reflects the training data distribution and cannot be updated without retraining.
+
+Retrieval-Augmented Generation (RAG)~\citep{lewis2020retrieval} addresses this limitation by supplementing LLMs with external documents retrieved at inference time. While RAG generally improves factual accuracy~\citep{guu2020realm}, a critical failure mode arises when retrieved context \emph{contradicts} the model's parametric knowledge---a \emph{knowledge conflict}. Such conflicts occur naturally when retrieved documents contain outdated information, factual errors, or adversarially manipulated content~\citep{pan2023risk}. When faced with a conflict, the model must implicitly decide whether to trust its parametric memory or defer to the provided context, with significant implications for system reliability.
+
+This problem becomes substantially more complex in \emph{multi-hop reasoning}, where answering a question requires synthesizing information across multiple documents in a reasoning chain~\citep{yang2018hotpotqa, trivedi2022musique}. A conflict at any single hop can potentially propagate through the chain, corrupting downstream inferences. Despite growing interest in knowledge conflicts~\citep{longpre2021entity, xie2024adaptive, chen2022rich}, existing work has focused primarily on single-hop settings. The interaction between conflicts and hop position in multi-step reasoning chains remains poorly understood.
+
+This work addresses this gap through a systematic experimental study. We inject controlled conflicts at specific hop positions and evaluate four LLMs across two multi-hop datasets, investigating six research questions:
+
+\begin{enumerate}
+    \item[\textbf{RQ1}] How significantly do knowledge conflicts degrade multi-hop QA accuracy?
+    \item[\textbf{RQ2}] Does the hop position of conflict injection affect degradation in 2-hop reasoning?
+    \item[\textbf{RQ3}] How does error propagation differ between 2-hop and 3-hop chains?
+    \item[\textbf{RQ4}] Does model size predict robustness to conflicts?
+    \item[\textbf{RQ5}] Does the conflict type (factual, temporal, numerical) influence severity?
+    \item[\textbf{RQ6}] Does entity popularity affect conflict resolution strategy?
+\end{enumerate}
+
+\noindent\textbf{Contributions.} We make five contributions: (1)~a controlled conflict injection framework for multi-hop QA; (2)~a large-scale evaluation across 4 models, 2 datasets, and 3 conflict types totaling 19,416 examples; (3)~the discovery that answer-bearing hop conflicts cause 40--52pp drops while bridge-hop conflicts are far less damaging---a pattern consistent across 2-hop and 3-hop chains; (4)~a conflict type taxonomy showing temporal conflicts are most disruptive (50.8pp drop, CFR up to 80\%); and (5)~evidence that entity popularity influences conflict resolution.

@@ -2,11 +2,11 @@
   {
     "run_number": 1,
     "status": "completed",
-    "n_examples": 142,
-    "start_time": "2026-03-06T15:16:45.325773",
-    "end_time": "2026-03-06T15:22:33.307624",
-    "duration_seconds": 348.0,
-    "details": "Target 142 reached",
+    "n_examples": 200,
+    "start_time": "2026-03-24T21:29:13.009113",
+    "end_time": "2026-03-24T21:34:11.946462",
+    "duration_seconds": 298.9,
+    "details": "Target 200 reached",
     "model_id": "llama-3.1-8b-instant",
     "experiment": "conflict_type_numerical"
   }

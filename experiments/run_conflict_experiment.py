@@ -1,206 +1,114 @@
-import json
+"""
+Single-model conflict injection experiment (legacy runner).
+
+This is the original single-model runner for 2-hop HotpotQA experiments.
+For multi-model runs, use run_model_comparison.py instead.
+
+Uses the global ExperimentRunner framework for checkpoint/resume.
+
+Usage:
+    python experiments/run_conflict_experiment.py
+    python experiments/run_conflict_experiment.py --n 200
+"""
+
 import os
 import sys
-from tqdm import tqdm
-from datetime import datetime
+import argparse
 
-# Add parent to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.data.hotpotqa_loader import HotpotQALoader
 from src.data.conflict_injector import ConflictInjector
 from src.inference.groq_client import GroqClient
 from src.inference.prompt_templates import create_cot_prompt, extract_answer
-from src.evaluation.metrics import normalize_answer, check_answer
+from src.evaluation.metrics import check_answer
+from src.experiments.framework import ExperimentRunner
 
-CHECKPOINT_PATH = 'outputs/results/checkpoint.json'
-
-
-def save_checkpoint(results, completed_idx):
-    """Save partial results to checkpoint file."""
-    os.makedirs('outputs/results', exist_ok=True)
-    with open(CHECKPOINT_PATH, 'w') as f:
-        json.dump({
-            'completed_idx': completed_idx,
-            'raw_results': results
-        }, f, indent=2)
-    print(f"  Checkpoint saved ({completed_idx + 1} examples done)")
+CONDITIONS = ["no_conflict", "conflict_hop1", "conflict_hop2"]
 
 
-def load_checkpoint():
-    """Load checkpoint if exists."""
-    if os.path.exists(CHECKPOINT_PATH):
-        with open(CHECKPOINT_PATH, 'r') as f:
-            data = json.load(f)
-        print(f"  Resuming from checkpoint ({data['completed_idx'] + 1} examples already done)")
-        return data['raw_results'], data['completed_idx']
-    return None, -1
-
-
-def compute_metrics(results):
-    """Compute final metrics from results."""
-    metrics = {}
-    for cond in ['no_conflict', 'conflict_hop1', 'conflict_hop2']:
-        n = len(results[cond])
-        if n == 0:
-            continue
-
-        accuracy = sum(r['correct'] for r in results[cond]) / n
-
-        if 'conflict' in cond:
-            cfr = sum(r['followed_context'] for r in results[cond]) / n
-            por = sum(r['used_parametric'] for r in results[cond]) / n
-        else:
-            cfr = por = 0
-
-        metrics[cond] = {
-            'n': n,
-            'accuracy': accuracy,
-            'context_following_rate': cfr,
-            'parametric_override_rate': por
-        }
-    return metrics
-
-
-def run_experiment(n_examples: int = 100, save_results: bool = True):
-    """
-    Run conflict injection experiment with checkpoint/resume support.
-
-    Tests three conditions:
-    1. No conflict (baseline)
-    2. Conflict at hop 1
-    3. Conflict at hop 2
-    """
-
-    print("=" * 60)
-    print("KNOWLEDGE CONFLICT EXPERIMENT")
-    print("=" * 60)
-
-    # Initialize
+def run_experiment(n_examples: int = 500):
     loader = HotpotQALoader()
     if not os.path.exists('data/hotpotqa/dev.json'):
         loader.download()
     loader.load()
 
-    injector = ConflictInjector()
+    injector = ConflictInjector(seed=42)
     client = GroqClient()
 
-    # Get bridge questions
     examples = loader.get_bridge_questions(n_examples)
     print(f"\nTesting {len(examples)} bridge questions")
 
-    # Check for checkpoint
-    results, start_after = load_checkpoint()
-    if results is None:
-        results = {
-            'no_conflict': [],
-            'conflict_hop1': [],
-            'conflict_hop2': []
-        }
+    runner = ExperimentRunner(
+        experiment_name="experiment",
+        model_id="llama-3.3-70b-versatile",
+        conditions=CONDITIONS,
+    )
 
-    try:
-        for i, example in enumerate(tqdm(examples, desc="Running experiments")):
-            # Skip already-completed examples
-            if i <= start_after:
-                continue
+    if runner.is_complete(n_examples):
+        print(f"Already have >= {n_examples} results. Skipping.")
+        return
 
-            question, doc1, doc2, answer = loader.extract_supporting_facts(example)
+    def process_example(idx, example):
+        question, bridge_doc, answer_doc, answer, bridge_entity = loader.extract_supporting_facts(example)
+        if not bridge_doc or not answer_doc:
+            return None
 
-            if not doc1 or not doc2:
-                continue
+        out = {}
 
-            # === Condition 1: No Conflict (Baseline) ===
-            prompt = create_cot_prompt(question, doc1, doc2)
-            response = client.generate(prompt)
-            pred = extract_answer(response)
-            result = check_answer(pred, answer)
-            result['condition'] = 'no_conflict'
-            result['question'] = question
-            results['no_conflict'].append(result)
+        # No Conflict (baseline)
+        prompt = create_cot_prompt(question, bridge_doc, answer_doc)
+        response = client.generate(prompt, max_tokens=1024)
+        pred = extract_answer(response)
+        result = check_answer(pred, answer)
+        result['condition'] = 'no_conflict'
+        result['question'] = question
+        result['response'] = response
+        out['no_conflict'] = result
 
-            # === Condition 2: Conflict at Hop 1 ===
-            mod_doc1, mod_doc2, fake = injector.inject_conflict(
-                question, doc1, doc2, answer, conflict_hop=1
+        # Conflict@Hop1 (bridge entity in bridge doc)
+        if bridge_entity:
+            mod_bridge, fake1, ok1 = injector.inject_conflict(
+                doc=bridge_doc, target_entity=bridge_entity,
+                question=question, hop=1,
             )
-            prompt = create_cot_prompt(question, mod_doc1, mod_doc2)
-            response = client.generate(prompt)
-            pred = extract_answer(response)
-            result = check_answer(pred, answer, fake)
-            result['condition'] = 'conflict_hop1'
-            result['question'] = question
-            results['conflict_hop1'].append(result)
+            if ok1:
+                prompt = create_cot_prompt(question, mod_bridge, answer_doc)
+                response = client.generate(prompt, max_tokens=1024)
+                pred = extract_answer(response)
+                result = check_answer(pred, answer, fake1)
+                result['condition'] = 'conflict_hop1'
+                result['question'] = question
+                result['response'] = response
+                result['target_entity'] = bridge_entity
+                result['injection_succeeded'] = True
+                out['conflict_hop1'] = result
 
-            # === Condition 3: Conflict at Hop 2 ===
-            mod_doc1, mod_doc2, fake = injector.inject_conflict(
-                question, doc1, doc2, answer, conflict_hop=2
-            )
-            prompt = create_cot_prompt(question, mod_doc1, mod_doc2)
-            response = client.generate(prompt)
+        # Conflict@Hop2 (final answer in answer doc)
+        mod_answer, fake2, ok2 = injector.inject_conflict(
+            doc=answer_doc, target_entity=answer,
+            question=question, hop=2,
+        )
+        if ok2:
+            prompt = create_cot_prompt(question, bridge_doc, mod_answer)
+            response = client.generate(prompt, max_tokens=1024)
             pred = extract_answer(response)
-            result = check_answer(pred, answer, fake)
+            result = check_answer(pred, answer, fake2)
             result['condition'] = 'conflict_hop2'
             result['question'] = question
-            results['conflict_hop2'].append(result)
+            result['response'] = response
+            result['target_entity'] = answer
+            result['injection_succeeded'] = True
+            out['conflict_hop2'] = result
 
-            # Auto-save checkpoint every 10 examples
-            if (i + 1) % 10 == 0:
-                save_checkpoint(results, i)
+        return out
 
-            # Progress update
-            if (i + 1) % 20 == 0:
-                print(f"\n--- Progress: {i+1}/{len(examples)} ---")
-                for cond in ['no_conflict', 'conflict_hop1', 'conflict_hop2']:
-                    if results[cond]:
-                        acc = sum(r['correct'] for r in results[cond]) / len(results[cond])
-                        print(f"  {cond}: {acc:.1%}")
-
-    except (RuntimeError, KeyboardInterrupt) as e:
-        print(f"\n\nStopped: {e}")
-        print("Saving partial results...")
-        save_checkpoint(results, i - 1)
-
-    # === Compute Final Metrics ===
-    metrics = compute_metrics(results)
-
-    print("\n" + "=" * 60)
-    print(f"RESULTS ({len(results['no_conflict'])} examples completed)")
-    print("=" * 60)
-
-    for cond in ['no_conflict', 'conflict_hop1', 'conflict_hop2']:
-        if cond in metrics:
-            m = metrics[cond]
-            print(f"\n{cond}:")
-            print(f"  Accuracy: {m['accuracy']:.1%} ({int(m['accuracy']*m['n'])}/{m['n']})")
-            if 'conflict' in cond:
-                print(f"  Context-Following Rate: {m['context_following_rate']:.1%}")
-                print(f"  Parametric-Override Rate: {m['parametric_override_rate']:.1%}")
-
-    # Save final results
-    if save_results and results['no_conflict']:
-        os.makedirs('outputs/results', exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        outpath = f'outputs/results/experiment_{timestamp}.json'
-
-        with open(outpath, 'w') as f:
-            json.dump({
-                'metrics': metrics,
-                'raw_results': results
-            }, f, indent=2)
-
-        print(f"\nResults saved to {outpath}")
-
-        # Clean up checkpoint if we finished all examples
-        if len(results['no_conflict']) >= n_examples and os.path.exists(CHECKPOINT_PATH):
-            os.remove(CHECKPOINT_PATH)
-            print("Checkpoint cleaned up (experiment complete)")
-
-    return metrics, results
+    runner.run(examples, process_example, n_target=n_examples, desc="Llama-3.3-70B [single]")
 
 
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser(description="Single-model conflict experiment")
     parser.add_argument('--n', type=int, default=500, help="Number of examples (default: 500)")
     args = parser.parse_args()
 
-    metrics, results = run_experiment(n_examples=args.n)
+    run_experiment(n_examples=args.n)

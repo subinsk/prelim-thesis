@@ -1,0 +1,28 @@
+\section{Related Work}
+\label{sec:related_work}
+
+\subsection{Multi-Hop Question Answering}
+
+Multi-hop QA requires combining information from multiple sources through a chain of reasoning steps. \textbf{HotpotQA}~\citep{yang2018hotpotqa} introduced a large-scale 2-hop benchmark with bridge and comparison questions over Wikipedia. \textbf{MuSiQue}~\citep{trivedi2022musique} extended this to longer chains (2--4 hops) through controlled single-hop composition, ensuring that genuine multi-step reasoning is required.
+
+A persistent concern is whether models perform genuine compositional reasoning or exploit shortcuts. \citet{min2019compositional} showed that many multi-hop questions can be answered from a single paragraph, bypassing the intended reasoning chain. \citet{jiang2019avoiding} proposed adversarial evaluation to detect such shortcut reasoning. More recently, \citet{press2023measuring} introduced the ``self-ask'' prompting strategy to make intermediate reasoning steps explicit and verifiable. \citet{turpin2023language} showed that chain-of-thought explanations can be unfaithful, with stated intermediate steps not always reflecting the model's actual computation. These findings are directly relevant to our work: if models do not faithfully follow multi-hop chains, conflict injection at different hops may have unexpected effects.
+
+\subsection{Knowledge Conflicts in LLMs}
+
+LLMs possess two knowledge sources at inference time: parametric knowledge from pre-training and contextual knowledge from the input prompt. \citet{longpre2021entity} first systematically studied this tension, finding that models generally prefer contextual information but that preference varies with conflict type and model confidence. \citet{xie2024adaptive} characterized conflict resolution strategies as ``adaptive chameleons'' (flexibly following context) versus ``stubborn sloths'' (rigidly relying on parametric memory), showing that resolution depends on the model's confidence and the specificity of the conflict.
+
+\citet{chen2022rich} studied conflicts from multiple knowledge sources, finding that models struggle to reconcile contradictory evidence. \citet{pan2023risk} demonstrated that even small amounts of misleading context significantly degrade factual accuracy, highlighting the practical threat of misinformation in RAG pipelines. \citet{li2023large} showed that LLMs are particularly susceptible to conflicts when the misleading context is coherent and well-written, suggesting that the surface quality of conflicting documents matters.
+
+\citet{neeman2023disentqa} introduced DisentQA, a framework for disentangling parametric and contextual contributions to QA answers, providing fine-grained metrics for conflict resolution. \citet{wang2023resolving} proposed methods for detecting and resolving knowledge conflicts through self-consistency checks. Our work differs from these studies by focusing specifically on how conflicts interact with \emph{multi-hop} reasoning chains, where the position of the conflict within the chain is a key variable.
+
+\subsection{Retrieval-Augmented Generation}
+
+RAG~\citep{lewis2020retrieval} combines parametric models with non-parametric retrieval, achieving strong performance on knowledge-intensive tasks. \citet{guu2020realm} showed that jointly pre-training the retriever and generator improves knowledge grounding. However, several studies have identified failure modes. \citet{liu2024lost} demonstrated that LLMs struggle to use information from the middle of long contexts (``lost in the middle''), suggesting that document position affects utilization. \citet{shi2023large} showed that irrelevant context can distract models even when the correct information is present. \citet{yoran2024making} proposed methods for making RAG more robust to noisy retrieval through attribution and verification.
+
+For multi-hop RAG specifically, \citet{khattab2021baleen} and \citet{trivedi2023interleaving} studied iterative retrieval strategies where each hop retrieves new documents conditioned on previous reasoning. Our work complements this line by studying what happens when the documents in such chains contain conflicting information.
+
+\subsection{Knowledge Editing and Entity Memorization}
+
+The strength of parametric memory for specific entities affects conflict resolution. \citet{meng2022locating} (ROME) demonstrated that factual associations are stored in localizable MLP layers, and that editing these associations changes model behavior. \citet{mitchell2022fast} proposed MEND for efficient knowledge editing. \citet{mallen2023when} directly studied the relationship between entity popularity and model accuracy, finding that models perform substantially better on popular entities---a finding that motivates our entity popularity analysis (Section~\ref{sec:entity_popularity}).
+
+\citet{zhu2023physics} characterized how LLMs store and retrieve factual knowledge, showing that frequently encountered facts are more robustly encoded. This suggests that conflicts involving well-known entities should be harder to introduce, as the model has stronger parametric priors to resist the conflicting context.

@@ -6,12 +6,15 @@ Characterizing how knowledge conflicts propagate through multi-hop reasoning cha
 
 | Model | No Conflict | Conflict@Hop1 | Conflict@Hop2 |
 |-------|-------------|---------------|---------------|
-| Llama-3.3-70B | 71.0% | 42.0% (↓29pp) | 45.0% (↓26pp) |
-| Llama-3.1-8B | 53.0% | 37.0% (↓16pp) | 30.0% (↓23pp) |
+| Llama-3.3-70B | 63.9% | 52.3% (↓12pp) | 24.0% (↓40pp) |
+| Llama-3.1-8B | 60.6% | 49.2% (↓11pp) | 17.3% (↓43pp) |
+| Gemini-2.5-Flash-Lite | 63.0% | 39.2% (↓24pp) | 11.0% (↓52pp) |
+| Qwen3-32B | 61.4% | 41.5% (↓20pp) | 13.9% (↓48pp) |
 
-- Conflicts cause **16-29 percentage point accuracy drops** (p < 0.05)
-- Hop 1 conflicts are more damaging for larger models
-- Smaller models are more vulnerable overall but show different conflict patterns
+- Answer-bearing hop conflicts cause **40-52pp accuracy drops** (p < 0.0001, large effect sizes)
+- Bridge hop conflicts cause moderate drops (11-24pp)
+- In 3-hop chains, only the final hop matters — Gemini drops to **0.5%** at hop 3
+- Temporal conflicts are the most potent: models follow fake dates/years 58-80% of the time
 
 ## Setup
 
@@ -102,8 +105,10 @@ Then run `python experiments/run_model_comparison.py` — it only runs models wi
 
 ## Methodology
 
-1. **Dataset**: HotpotQA bridge questions (2-hop reasoning)
-2. **Conflict Injection**: Entity substitution — replace correct answer with plausible fake in one supporting document
-3. **Conditions**: No conflict (baseline), conflict at hop 1, conflict at hop 2
-4. **Metrics**: Accuracy, Context-Following Rate (CFR), Parametric-Override Rate (POR)
-5. **Inference**: Chain-of-Thought prompting, temperature=0
+1. **Datasets**: HotpotQA (2-hop, 1000 examples) + MuSiQue (3-hop, 200 examples)
+2. **Conflict Injection**: Entity substitution — replace target entity with plausible fake in supporting document
+3. **Conditions**: No conflict (baseline), conflict at each hop position
+4. **Models**: Llama-3.3-70B, Llama-3.1-8B, Gemini-2.5-Flash-Lite, Qwen3-32B
+5. **Metrics**: Accuracy (exact match), CFR, POR (mutually exclusive: CFR + POR + other = 1)
+6. **Inference**: Chain-of-Thought prompting, temperature=0
+7. **Scale**: 19,416 total evaluations across 4 models × 2 datasets × 3 conflict types

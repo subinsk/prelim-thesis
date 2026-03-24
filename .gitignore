@@ -1,5 +1,6 @@
 # ========== INTERNAL DOCS (IMPORTANT!) ==========
 .docs-internal/
+presentations/
 
 # ========== API KEYS ==========
 .env

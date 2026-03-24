@@ -3,9 +3,20 @@
     "run_number": 1,
     "status": "completed",
     "n_examples": 200,
-    "start_time": "2026-03-05T16:30:49.779169",
-    "end_time": "2026-03-05T16:58:43.255163",
-    "duration_seconds": 1673.5,
+    "start_time": "2026-03-24T20:18:57.205088",
+    "end_time": "2026-03-24T20:48:05.124343",
+    "duration_seconds": 1747.9,
+    "details": "Target 200 reached",
+    "model_id": "qwen/qwen3-32b",
+    "experiment": "musique_experiment"
+  },
+  {
+    "run_number": 2,
+    "status": "completed",
+    "n_examples": 200,
+    "start_time": "2026-03-24T20:19:37.039532",
+    "end_time": "2026-03-24T20:49:58.578247",
+    "duration_seconds": 1821.5,
     "details": "Target 200 reached",
     "model_id": "qwen/qwen3-32b",
     "experiment": "musique_experiment"

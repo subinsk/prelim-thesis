@@ -4,6 +4,10 @@
 Uses the global ExperimentRunner framework for fail-safe checkpoint/resume.
 Tests conflict injection at each hop position (1, 2, 3) in 3-hop reasoning chains.
 
+Key fix: injects conflicts by replacing the INTERMEDIATE answer at each hop,
+not the final answer. This ensures that conflicts at hops 1 and 2 actually
+modify the document (the final answer rarely appears in early-hop documents).
+
 Usage:
     python experiments/run_3hop_experiment.py                    # default settings
     python experiments/run_3hop_experiment.py --n 200            # custom count
@@ -19,7 +23,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.data.musique_loader import MuSiQueLoader
 from src.data.conflict_injector import ConflictInjector
-from src.inference.prompt_templates import extract_answer
+from src.inference.prompt_templates import extract_answer, create_3hop_cot_prompt
 from src.evaluation.metrics import check_answer
 from src.experiments.framework import ExperimentRunner
 
@@ -49,29 +53,6 @@ def get_client(model_config):
         raise ValueError(f"Unknown backend: {backend}")
 
 
-def create_3hop_cot_prompt(question: str, doc1: str, doc2: str, doc3: str) -> str:
-    """Create Chain-of-Thought prompt for 3-hop multi-hop QA."""
-    return f"""Answer the following question using the provided documents. Think step by step.
-
-Document 1:
-{doc1}
-
-Document 2:
-{doc2}
-
-Document 3:
-{doc3}
-
-Question: {question}
-
-Let's solve this step by step:
-1. First, I'll identify relevant information from Document 1.
-2. Then, I'll connect that with information from Document 2.
-3. Finally, I'll use Documents 2 and 3 to find the answer.
-
-Step-by-step reasoning:"""
-
-
 def run_3hop_for_model(model_config, loader, examples, n_target):
     """Run the 4-condition experiment for 3-hop questions using the framework."""
 
@@ -85,18 +66,18 @@ def run_3hop_for_model(model_config, loader, examples, n_target):
     )
 
     if runner.is_complete(n_target):
-        print(f"\n>> SKIP {label} — already has >= {n_target} 3-hop results")
+        print(f"\n>> SKIP {label} -- already has >= {n_target} 3-hop results")
         return None
 
-    injector = ConflictInjector()
+    injector = ConflictInjector(seed=42)
     client = get_client(model_config)
 
     def process_example(idx, example):
         """Process a single 3-hop example through all 4 conditions."""
-        question, docs, answer = loader.extract_supporting_docs(example)
+        question, docs, answer, step_answers = loader.extract_supporting_docs(example)
 
-        if len(docs) < 3:
-            return None  # skip — need 3 docs
+        if len(docs) < 3 or len(step_answers) < 3:
+            return None  # skip -- need 3 docs with intermediate answers
 
         doc1, doc2, doc3 = docs[0], docs[1], docs[2]
         out = {}
@@ -108,21 +89,39 @@ def run_3hop_for_model(model_config, loader, examples, n_target):
         result = check_answer(pred, answer)
         result['condition'] = 'no_conflict'
         result['question'] = question
+        result['response'] = response
         out['no_conflict'] = result
 
-        # Conditions 2-4: Conflict at each hop
+        # Conditions 2-4: Conflict at each hop using INTERMEDIATE answers
         for hop in [1, 2, 3]:
-            fake_answer = injector._generate_fake_answer(answer)
+            target_entity = step_answers[hop - 1]  # intermediate answer for this hop
+
+            if not target_entity:
+                # No intermediate answer available -- skip this condition
+                continue
+
             modified_docs = [doc1, doc2, doc3]
-            modified_docs[hop - 1] = injector._substitute_entity(
-                modified_docs[hop - 1], answer, fake_answer
+            mod_doc, fake_answer, succeeded = injector.inject_conflict(
+                doc=modified_docs[hop - 1],
+                target_entity=target_entity,
+                question=question,
+                hop=hop,
             )
+
+            if not succeeded:
+                # Entity not found in document -- skip this condition
+                continue
+
+            modified_docs[hop - 1] = mod_doc
             prompt = create_3hop_cot_prompt(question, modified_docs[0], modified_docs[1], modified_docs[2])
             response = client.generate(prompt, max_tokens=1024)
             pred = extract_answer(response)
             result = check_answer(pred, answer, fake_answer)
             result['condition'] = f'conflict_hop{hop}'
             result['question'] = question
+            result['response'] = response
+            result['target_entity'] = target_entity
+            result['injection_succeeded'] = True
             out[f'conflict_hop{hop}'] = result
 
         return out

@@ -3,9 +3,20 @@
     "run_number": 1,
     "status": "completed",
     "n_examples": 200,
-    "start_time": "2026-03-05T17:23:24.006853",
-    "end_time": "2026-03-05T17:42:39.211194",
-    "duration_seconds": 1155.2,
+    "start_time": "2026-03-24T19:23:26.629456",
+    "end_time": "2026-03-24T19:34:21.415478",
+    "duration_seconds": 654.8,
+    "details": "Target 200 reached",
+    "model_id": "llama-3.1-8b-instant",
+    "experiment": "musique_experiment"
+  },
+  {
+    "run_number": 2,
+    "status": "completed",
+    "n_examples": 200,
+    "start_time": "2026-03-24T19:23:39.232541",
+    "end_time": "2026-03-24T19:34:30.634795",
+    "duration_seconds": 651.4,
     "details": "Target 200 reached",
     "model_id": "llama-3.1-8b-instant",
     "experiment": "musique_experiment"

@@ -190,7 +190,14 @@ class ExperimentRunner:
     # ---- Compute metrics ----
 
     def compute_metrics(self, results: dict) -> dict:
-        """Compute accuracy, CFR, POR for each condition."""
+        """Compute accuracy, CFR, POR, and other rate for each condition.
+
+        For conflict conditions:
+        - POR (parametric override rate) = fraction matching gold answer
+        - CFR (context following rate) = fraction matching fake answer (and NOT gold)
+        - other = fraction matching neither (confused/hallucinated)
+        - POR + CFR + other = 1.0
+        """
         metrics = {}
         for cond in self.conditions:
             entries = results.get(cond, [])
@@ -201,13 +208,16 @@ class ExperimentRunner:
             if 'conflict' in cond:
                 cfr = sum(r.get('followed_context', False) for r in entries) / n
                 por = sum(r.get('used_parametric', False) for r in entries) / n
+                other = 1.0 - cfr - por
             else:
                 cfr = por = 0
+                other = 0
             metrics[cond] = {
                 'n': n,
                 'accuracy': accuracy,
                 'context_following_rate': cfr,
                 'parametric_override_rate': por,
+                'other_rate': round(other, 6),
             }
         return metrics
 
