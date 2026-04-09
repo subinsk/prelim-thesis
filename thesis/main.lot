@@ -1,6 +1,0 @@
-\contentsline {table}{\numberline {1}{\ignorespaces Models evaluated in this study.}}{5}{table.caption.4}%
-\contentsline {table}{\numberline {2}{\ignorespaces Baseline accuracy (no conflict) across models and datasets, with 95\% Wilson score CIs.}}{7}{table.caption.5}%
-\contentsline {table}{\numberline {3}{\ignorespaces HotpotQA 2-hop: accuracy, CFR, and effect sizes under conflict.}}{7}{table.caption.7}%
-\contentsline {table}{\numberline {4}{\ignorespaces MuSiQue 3-hop: accuracy by conflict position, with CFR at hop 3 and effect sizes.}}{9}{table.caption.9}%
-\contentsline {table}{\numberline {5}{\ignorespaces Average accuracy and drop by conflict type across all four models.}}{12}{table.caption.14}%
-\contentsline {table}{\numberline {6}{\ignorespaces Summary of key findings with supporting evidence.}}{13}{table.caption.16}%

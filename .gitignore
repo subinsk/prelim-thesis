@@ -32,6 +32,10 @@ venv/
 *.bbl
 *.blg
 *.synctex.gz
+*.fdb_latexmk
+*.fls
+*.lof
+*.lot
 thesis/*.pdf
 
 # ========== OS ==========

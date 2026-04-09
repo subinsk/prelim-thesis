@@ -1,7 +1,0 @@
-\contentsline {figure}{\numberline {1}{\ignorespaces Accuracy by condition on HotpotQA (2-hop). Error bars show 95\% Wilson CIs. All conflict conditions differ significantly from baseline ($p < 0.0001$, chi-square test).}}{8}{figure.caption.6}%
-\contentsline {figure}{\numberline {2}{\ignorespaces Behavior breakdown under conflict. The ``Other'' category represents responses matching neither the gold nor injected answer, indicating general confusion.}}{8}{figure.caption.8}%
-\contentsline {figure}{\numberline {3}{\ignorespaces Error propagation in 3-hop chains. Early-hop conflicts cause negligible degradation; final-hop conflicts cause near-total failure across all models.}}{10}{figure.caption.10}%
-\contentsline {figure}{\numberline {4}{\ignorespaces Baseline accuracy vs.\ average accuracy drop under conflict (HotpotQA 2-hop).}}{11}{figure.caption.11}%
-\contentsline {figure}{\numberline {5}{\ignorespaces Comparison of 2-hop (HotpotQA) and 3-hop (MuSiQue) accuracy across conflict positions for all models.}}{11}{figure.caption.12}%
-\contentsline {figure}{\numberline {6}{\ignorespaces Accuracy drop by conflict type across all models on HotpotQA.}}{12}{figure.caption.13}%
-\contentsline {figure}{\numberline {7}{\ignorespaces Relationship between entity popularity (Wikipedia monthly page views) and conflict resolution behavior.}}{13}{figure.caption.15}%
