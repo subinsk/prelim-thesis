@@ -18,6 +18,29 @@
 \usepackage{setspace}
 \usepackage{fancyhdr}
 \usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds}
+\usepackage{microtype}
+\usepackage{multicol}
+
+% Suppress orphan and widow lines so paragraphs don't leave a single line
+% stranded at the top or bottom of a page.
+\widowpenalty=10000
+\clubpenalty=10000
+
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  frame=single,
+  breaklines=true,
+  columns=fullflexible,
+  xleftmargin=1em,
+  xrightmargin=1em,
+  aboveskip=0.6em,
+  belowskip=0.6em,
+}
 
 \onehalfspacing
 \pagestyle{fancy}
@@ -25,6 +48,7 @@
 \fancyhead[L]{\leftmark}
 \fancyhead[R]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
+
 
 \begin{document}
 
@@ -81,7 +105,7 @@
 \vspace{0.5cm}
 
 \noindent
-Retrieval-Augmented Generation (RAG) systems supplement Large Language Models (LLMs) with external context, but what happens when that context contradicts the model's parametric knowledge? We present a systematic study of \emph{knowledge conflicts} in multi-hop question answering, evaluating how four LLMs---Llama-3.3-70B, Llama-3.1-8B, Qwen3-32B, and Gemini-2.5-Flash-Lite---handle contradictions injected at specific positions within 2-hop (HotpotQA) and 3-hop (MuSiQue) reasoning chains. Across 19,416 evaluations, we find that: (1)~a single conflict at the answer-bearing hop reduces accuracy by 40--52 percentage points ($p < 0.0001$, $h > 0.8$); (2)~in both 2-hop and 3-hop chains, answer-bearing hop conflicts are far more damaging than bridge-hop conflicts (CFR 27--36\% vs.\ $\sim$2\%); (3)~in 3-hop chains, conflicts at the final hop cause catastrophic failure (44--47pp drops across all models), while early-hop conflicts cause minimal degradation; (4)~temporal conflicts are the most disruptive (50.8pp average drop, CFR up to 80\%); and (5)~entity popularity influences whether models defer to context or override with parametric memory. Our findings reveal a critical vulnerability in multi-hop RAG pipelines: models are disproportionately dependent on the final-answer document in reasoning chains.
+Retrieval-Augmented Generation (RAG) systems supplement Large Language Models (LLMs) with external context, but what happens when that context contradicts the model's parametric knowledge? This work presents a systematic study of \emph{knowledge conflicts} in multi-hop question answering, evaluating how four LLMs---Llama-3.3-70B, Llama-3.1-8B, Qwen3-32B, and Gemini-2.5-Flash-Lite---handle contradictions injected at specific positions within 2-hop (HotpotQA) and 3-hop (MuSiQue) reasoning chains. Across 19,416 evaluations in a gold-context setting, the experiments show that: (1)~a single conflict at the answer-bearing hop reduces accuracy by 40--52 percentage points ($p < 0.0001$ by McNemar's paired test, $h > 0.8$); (2)~in both 2-hop and 3-hop chains, answer-bearing hop conflicts are far more damaging than bridge-hop conflicts (CFR 27--36\% vs.\ $\leq 2.1\%$); (3)~in 3-hop chains, conflicts at the final hop cause catastrophic failure (44.0--46.5pp drops across all models), while early-hop conflicts cause minimal degradation---three of four models show no significant drop at hop~1, with Gemini-2.5-Flash-Lite the sole exception ($\sim$13pp); (4)~temporal and numerical conflicts are the most disruptive (50.8 and 36.2pp absolute drops respectively; comparable on a relative-drop basis); and (5)~entity popularity strongly influences conflict resolution, with parametric override rate (POR) tracking popularity monotonically in all four models. These findings reveal a critical vulnerability in multi-hop RAG pipelines: models are disproportionately dependent on the final-answer document in reasoning chains.
 
 \vspace{1em}
 \noindent\textbf{Keywords:} knowledge conflicts, multi-hop reasoning, retrieval-augmented generation, large language models, question answering
@@ -90,10 +114,26 @@ Retrieval-Augmented Generation (RAG) systems supplement Large Language Models (L
 \newpage
 \tableofcontents
 
-% === List of Figures and Tables ===
+% === List of Figures and Tables (combined under one heading) ===
 \newpage
+% Relabel the sub-headings produced by \listoffigures / \listoftables so they
+% read as natural sub-sections under the combined heading above.
+\renewcommand{\listfigurename}{Figures}
+\renewcommand{\listtablename}{Tables}
+% Neutralise \@mkboth locally so that \listoffigures / \listoftables do not
+% overwrite the page header we set with \markboth below.
+\makeatletter
+\let\origmkboth\@mkboth
+\def\@mkboth#1#2{}
+\makeatother
+\markboth{LIST OF FIGURES AND TABLES}{LIST OF FIGURES AND TABLES}
+\section*{List of Figures and Tables}
+\addcontentsline{toc}{section}{List of Figures and Tables}
 \listoffigures
 \listoftables
+\makeatletter
+\let\@mkboth\origmkboth
+\makeatother
 
 % === Body (arabic numerals, starting at 1) ===
 \newpage
@@ -105,7 +145,17 @@ Retrieval-Augmented Generation (RAG) systems supplement Large Language Models (L
 \input{sections/04_results}
 \input{sections/05_conclusion}
 
-\bibliographystyle{plainnat}
+\clearpage
+% Compact bibliography: abbreviated first names, tight spacing, small font,
+% two-column layout to fit on a single page.
+\bibliographystyle{abbrvnat}
+\setlength{\bibsep}{1pt plus 0.2ex}
+\begingroup
+\scriptsize
+\setlength{\columnsep}{1.5em}
+\begin{multicols}{2}
 \bibliography{references}
+\end{multicols}
+\endgroup
 
 \end{document}

@@ -1,51 +1,108 @@
 \section{Methodology}
 \label{sec:methodology}
 
+This section is organised around four sequential phases that mirror the software architecture: \textbf{Phase 1} dataset loading and hop identification; \textbf{Phase 2} conflict injection via entity substitution; \textbf{Phase 3} model inference with chain-of-thought prompting; \textbf{Phase 4} evaluation and statistical testing. Cross-cutting implementation details (the experiment runner, checkpoint/resume, API abstraction) are collected in Section~\ref{sec:implementation}.
+
 \subsection{Experimental Design}
+\label{sec:design}
 
-Our experiments follow a controlled within-subjects design. For each set of questions, we evaluate every model under all conflict conditions (baseline, conflict at hop~1, conflict at hop~2, and---for 3-hop---conflict at hop~3), ensuring that observed differences are attributable to the conflict manipulation rather than question difficulty.
+This work uses a within-subjects design: every model is evaluated on the same question set under all conflict conditions (baseline, hop~1, hop~2, and---for 3-hop---hop~3), so question-level difficulty cancels in paired analyses and McNemar's paired test can be applied on identical question sets. Independent variables are model (4 LLMs, Table~\ref{tab:models}), dataset (HotpotQA 2-hop, MuSiQue 3-hop), conflict position (no conflict / hop~1 / hop~2 / hop~3), and conflict type (factual, temporal, numerical). Dependent variables are accuracy, context following rate (CFR), and parametric override rate (POR).
 
-The independent variables are: (1)~\textbf{model} (4 LLMs, Table~\ref{tab:models}); (2)~\textbf{dataset} (HotpotQA 2-hop, MuSiQue 3-hop); (3)~\textbf{conflict position} (no conflict, hop~1, hop~2, hop~3); and (4)~\textbf{conflict type} (factual, temporal, numerical). The dependent variables are accuracy, context following rate (CFR), and parametric override rate (POR).
+\subsection{Pipeline Overview}
+\label{sec:pipeline}
 
-\subsection{Datasets}
+Figure~\ref{fig:pipeline} shows the five-stage pipeline: a loader extracts per-hop supporting documents, a conflict injector performs type-matched entity substitution at the target hop, a prompt builder assembles the CoT prompt, an API client dispatches to the target model with retry and back-off, and an answer extractor strips reasoning traces before scoring. An experiment runner wraps the flow with checkpoint/resume so that long runs over free-tier endpoints survive rate-limit interruptions.
 
-\textbf{HotpotQA}~\citep{yang2018hotpotqa}. We use the bridge question subset, which requires reasoning over exactly two supporting documents. Each question follows the pattern: the first hop identifies a bridge entity, and the second hop retrieves the final answer from that entity's article. We filter out comparison questions, as they lack a clear sequential chain. Sample sizes range from 499 to 1,000 per condition depending on the model.
+\begin{figure}[!ht]
+\centering
+\begin{tikzpicture}[
+  node distance=0.55cm and 0.55cm,
+  stage/.style={rectangle, rounded corners=3pt, draw, thick, minimum width=2.3cm, minimum height=0.9cm, align=center, font=\small},
+  inject/.style={stage, fill=red!8},
+  flow/.style={stage, fill=blue!6},
+  eval/.style={stage, fill=green!8},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+]
+\node[flow] (load) {Dataset\\Loader};
+\node[inject, right=of load] (inj) {Conflict\\Injector};
+\node[flow, right=of inj] (prompt) {Prompt\\Builder};
+\node[flow, right=of prompt] (api) {API\\Client};
+\node[eval, below=0.9cm of api] (extract) {Answer\\Extractor};
+\node[eval, left=of extract] (score) {Scorer\\(EM + CFR + POR)};
+\node[eval, left=of score] (stat) {Statistical\\Tests};
 
-\textbf{MuSiQue}~\citep{trivedi2022musique}. We use the 3-hop subset, where each question requires three sequential reasoning steps with explicit decomposition into sub-questions. This decomposition identifies which document corresponds to each hop, enabling targeted conflict injection. We evaluate 200 questions per condition per model.
+\draw[arrow] (load) -- (inj);
+\draw[arrow] (inj) -- (prompt);
+\draw[arrow] (prompt) -- (api);
+\draw[arrow] (api) -- (extract);
+\draw[arrow] (extract) -- (score);
+\draw[arrow] (score) -- (stat);
 
-\textit{Justification for unequal sample sizes.} Llama-3.3-70B was evaluated on $n$=1,000 (HotpotQA) as our primary model to provide tight confidence intervals. Other models use $n$=500 due to API rate limits on free-tier endpoints. MuSiQue uses $n$=200 across all models, which provides 80\% power to detect medium effect sizes ($h \geq 0.3$) at $\alpha = 0.05$. All statistical comparisons account for differing sample sizes through appropriate confidence interval calculations.
+\begin{scope}[on background layer]
+\node[draw, dashed, rounded corners, fit=(load)(inj)(prompt)(api)(extract)(score)(stat), inner sep=0.35cm, label={[font=\footnotesize\itshape]below:Experiment Runner (checkpoint / resume / atomic writes)}] {};
+\end{scope}
+\end{tikzpicture}
+\caption[Experimental pipeline.]{Five-stage experimental pipeline: loader $\to$ conflict injector $\to$ prompt builder $\to$ API client $\to$ answer extractor $\to$ scorer + statistical tests, all wrapped in an experiment runner that auto-checkpoints every ten examples and resumes atomically after interruption.}
+\label{fig:pipeline}
+\end{figure}
 
-\subsection{Conflict Injection via Entity Substitution}
+\subsection{Datasets and Hop Identification (Phase 1)}
+\label{sec:datasets}
 
-For a given question and target hop, we replace the gold answer entity in the corresponding supporting document with a plausible but incorrect alternative of the same semantic type:
+\textbf{HotpotQA}~\citep{yang2018hotpotqa}. This work uses the bridge subset of the distractor dev split (comparison questions are filtered out because they lack a sequential chain); of the 5{,}918 bridge questions, the first 5{,}000 in dataset order are used. For each question the answer document (hop~2) is identified by case-insensitive substring match of the gold answer; the remaining supporting document is hop~1, and the bridge entity---the title of the answer document, which by construction appears in hop~1---is the target of hop-1 substitution.
 
-\begin{enumerate}
-    \item Select the target hop position.
-    \item Identify the gold answer and the supporting document for that hop.
-    \item Generate a plausible substitute entity (e.g., replacing one city with another, one year with a nearby year, one number with a different number).
-    \item Replace all occurrences of the gold answer in the target document with the substitute.
-    \item Present the modified context to the model with the original question.
-\end{enumerate}
+\textit{Context setting.} A \textbf{gold-context} setting is used: only the two annotated supporting documents are placed in the prompt, with HotpotQA's eight distractor paragraphs excluded. This isolates the effect of conflict injection from retrieval noise; baselines are therefore not directly comparable to published distractor-setting numbers, but the internal conflict-position contrasts are unaffected.
 
-This localizes the conflict to a single hop, isolating the effect of position. The non-targeted documents remain unmodified.
+\textbf{MuSiQue}~\citep{trivedi2022musique}. The 3-hop subset (\texttt{musique\_ans\_v1.0\_dev}, filtered to three-decomposition examples) is used, in which each sub-question is already annotated with the paragraph index of its supporting document and its intermediate answer---so hop assignment is read directly from the decomposition rather than recovered heuristically. Only the three supporting paragraphs are placed in the prompt (gold-context, mirroring the HotpotQA choice). $n = 200$ per condition per model.
 
-\subsection{Conflict Type Classification}
+\textit{Sample sizes.} HotpotQA uses $n = 1{,}000$ for no-conflict and hop-2, and $n = 518$ for hop-1 (the shortfall is from injection-success filtering: the regex-based injector of Algorithm~\ref{alg:inject} cannot substitute a bridge entity that is not present verbatim in the bridge document). The conflict-type experiments (\S\ref{sec:types}) stratify 200 questions per type with hop-1 n reduced by the same filter (factual: 87, temporal: 120, numerical: 129). Pairwise comparisons are paired by question identity, so unequal condition sizes do not bias the contrasts.
 
-We classify answer entities into three semantic categories using regular expression patterns applied to the gold answer string:
+\subsection{Conflict Injection via Entity Substitution (Phase 2)}
+\label{sec:injection}
 
-\begin{itemize}
-    \item \textbf{Factual}: Named entities (people, places, organizations)---the default and majority category. \textit{Examples: ``Albert Einstein,'' ``United Kingdom.''}
-    \item \textbf{Temporal}: Dates, years, and time periods, detected via patterns for four-digit years, date expressions, and temporal ranges. \textit{Examples: ``1999,'' ``from 1986 to 2013.''}
-    \item \textbf{Numerical}: Quantities and measurements, detected via patterns for numbers with units, commas, or standalone numeric expressions. \textit{Examples: ``9,984,670,'' ``450 km.''}
-\end{itemize}
+Given question $q$, ordered supporting documents $D = [d_1, \ldots, d_k]$ (one per hop), a target hop $h$, and the entity $e_h$ for that hop (bridge entity for intermediate hops, gold answer for the final hop), the injector produces $D' = [d_1, \ldots, d'_h, \ldots, d_k]$ in which every occurrence of $e_h$ in $d_h$ is replaced by a type-matched substitute $\tilde{e}_h$. Non-targeted documents are unmodified, localising the conflict to a single hop.
 
-From 5,000 bridge questions, we obtained 200 factual, 200 temporal, and 142 numerical examples (numerical entities are scarcer in HotpotQA).
+\subsubsection{Conflict Type Classification}
+\label{sec:types}
 
-\subsection{Models}
+Answer entities are classified into three semantic categories via regex: \textbf{factual} (named entities---people, places, organisations, countries; the default and majority category; e.g.\ ``Albert Einstein''); \textbf{temporal} (four-digit years, month-day-year expressions, ISO dates, year ranges; e.g.\ ``1999,'' ``from 1986 to 2013''); and \textbf{numerical} (digits with optional commas and decimals, optionally followed by a unit token from a curated list; e.g.\ ``9,984,670,'' ``450~km''). Applied to the 5{,}000 bridge questions, the classifier identifies 4{,}343 factual, 448 temporal, and 209 numerical entities; 200 per stratum are sampled for the conflict-type experiments (numerical is near-exhaustive given the 209-entity pool).
+
+\subsubsection{Substitute Generation}
+
+Substitute entities are sampled from curated, type-matched pools: factual (persons, locations, countries, organisations---12--15 entries per subpool, routed by keyword detection on the gold entity); temporal (nearby years with offset $\in [5, 30]$ from the gold year); numerical (original magnitude scaled by $\{0.3, 0.5, 0.7, 1.5, 2.0, 3.0\}$, preserving comma-grouping, decimals, and unit tokens). Sampling is seeded deterministically from $(\text{base\_seed}, q, e, h)$ via MD5 hash so re-runs produce identical substitutes---essential for the within-subjects design. Algorithm~\ref{alg:inject} summarises the full procedure.
+
+\begin{algorithm}[!ht]
+\caption{Conflict Injection via Entity Substitution (Phase 2)}
+\label{alg:inject}
+\begin{algorithmic}[1]
+\Require Question $q$; document list $D = [d_1, \ldots, d_k]$; target hop $h$; target entity $e_h$; base seed $s_0$
+\Ensure Modified document list $D'$; fake answer $\tilde{e}_h$; success flag
+\State $\tau \gets \textsc{ClassifyType}(e_h)$ \Comment{factual $\mid$ temporal $\mid$ numerical}
+\State seed $\gets$ MD5$(s_0 : q : e_h : h)$ \Comment{deterministic}
+\If{$\tau = \text{temporal}$}
+    \State $\tilde{e}_h \gets \textsc{SampleTemporal}(e_h, \text{seed})$ \Comment{year $\pm$ 5--30 offset}
+\ElsIf{$\tau = \text{numerical}$}
+    \State $\tilde{e}_h \gets \textsc{SampleNumerical}(e_h, \text{seed})$ \Comment{preserve format, scale magnitude}
+\Else
+    \State pool $\gets \textsc{RouteFactualPool}(e_h)$ \Comment{person $\mid$ location $\mid$ country $\mid$ organisation}
+    \State $\tilde{e}_h \gets$ uniform sample from pool $\setminus \{e_h\}$ using seed
+\EndIf
+\State $(d'_h, n) \gets \textsc{RegexReplace}(d_h, e_h, \tilde{e}_h)$ \Comment{case-insensitive, all occurrences}
+\State $D' \gets [d_1, \ldots, d_{h-1}, d'_h, d_{h+1}, \ldots, d_k]$
+\State \textbf{return} $D',\ \tilde{e}_h,\ (n > 0)$
+\end{algorithmic}
+\end{algorithm}
+
+Examples where \textsc{RegexReplace} returns zero substitutions (target entity absent verbatim) are logged and skipped.
+
+\subsection{Model Inference (Phase 3)}
+\label{sec:inference}
+
+\subsubsection{Models}
 
 \begin{table}[!ht]
 \centering
-\caption{Models evaluated in this study.}
+\caption{Models evaluated in this study. Groq is used for open-weight models because its free tier supports the request volume required for $n \geq 500$ per condition without paid API costs.}
 \label{tab:models}
 \begin{tabular}{llll}
 \toprule
@@ -59,32 +116,129 @@ Gemini-2.5-Flash-Lite & Undisclosed & Google & Commercial, lightweight \\
 \end{tabular}
 \end{table}
 
-All models are accessed via API (Groq for Llama and Qwen; Google AI Studio for Gemini) with \texttt{temperature=0.0} for deterministic outputs and \texttt{max\_tokens=1024} to accommodate Qwen3-32B's extended thinking traces. We use chain-of-thought prompting~\citep{wei2022chain} with a consistent template across all models and conditions. For Qwen3-32B, \texttt{<think>...</think>} blocks are stripped before answer extraction.
+The four span three dimensions---parameter count (8B--70B), training family (Llama, Qwen, Gemini), and reasoning style (Qwen3-32B emits explicit \texttt{<think>} traces; the others do not)---allowing this study to probe whether conflict vulnerability tracks size, training data, or reasoning architecture.
 
-\subsection{Evaluation Metrics}
+\subsubsection{Prompt Template}
 
-\textbf{Accuracy.} Proportion of responses matching the gold answer under normalized exact match (lowercased, articles and punctuation removed).
+All models receive an identical chain-of-thought prompt~\citep{wei2022chain} (Listing~\ref{lst:prompt}); the 3-hop template adds a third document block with the same structure.
+
+\begin{lstlisting}[caption={Chain-of-thought prompt template used for all four models, reproduced verbatim from \texttt{src/inference/prompt\_templates.py}. Document labels are deliberately neutral (``Document 1/2'') rather than semantically descriptive (e.g., ``Bridge Article''), so the model cannot infer hop roles from the labels. The 3-hop template appends ``Document 3:'' with the same structure.}, label={lst:prompt}]
+Answer the following question using the provided documents. Think step by step, then provide your final answer.
+
+Document 1:
+<d_1>
+
+Document 2:
+<d_2>
+
+Question: <q>
+
+Think step by step, then state your final answer in the format: "The answer is <answer>".
+
+Step-by-step reasoning:
+\end{lstlisting}
+
+\subsubsection{Generation Settings}
+
+All models are queried with \texttt{temperature} $= 0$ (deterministic decoding eliminates sampling noise as a source of cross-condition variance) and \texttt{max\_tokens} $= 1024$ (the smallest power-of-two cap that accommodates Qwen3-32B's \texttt{<think>} blocks on all pilot questions; the same value is used for all models to keep prompting uniform).
+
+\subsubsection{Answer Extraction}
+
+Reasoning-model responses contain a \texttt{<think>} block that must be stripped before extraction, and CoT responses end with varied answer-line phrasings. Algorithm~\ref{alg:extract} specifies the extraction and normalisation procedure.
+
+\begin{algorithm}[!ht]
+\caption{Answer Extraction and Normalisation}
+\label{alg:extract}
+\begin{algorithmic}[1]
+\Require Raw model response $r$; gold answer $a_{\text{gold}}$
+\Ensure Extracted answer $\hat{a}$; correctness flag
+\State $r \gets \textsc{Strip}(\texttt{<think>}\ldots\texttt{</think>}, r)$ \Comment{remove reasoning trace}
+\State $r_{\ell} \gets \textsc{ToLower}(r)$
+\If{``the answer is'' appears in $r_{\ell}$}
+    \State $p \gets$ substring after \emph{last} occurrence of ``the answer is''
+\ElsIf{``answer:'' appears in $r_{\ell}$}
+    \State $p \gets$ substring after \emph{last} occurrence of ``answer:''
+\Else
+    \State $p \gets$ last non-empty line of $r$ \Comment{fallback}
+\EndIf
+\State $p \gets \textsc{TrimAtSentenceBoundary}(p)$ \Comment{period + space or newline; preserves ``9,984,670''}
+\State $\hat{a} \gets \textsc{Normalise}(p)$ \Comment{lowercase, strip articles + punctuation}
+\State $a^*_{\text{gold}} \gets \textsc{Normalise}(a_{\text{gold}})$
+\State \textbf{return} $\hat{a},\ [\hat{a} = a^*_{\text{gold}}]$
+\end{algorithmic}
+\end{algorithm}
+
+The \emph{last} occurrence of the answer phrase is used (reasoning models often quote the question back before committing), and the sentence-boundary trim matches ``period followed by whitespace'' to preserve comma-grouped numbers (``9,984,670'') and decimals.
+
+\subsection{Evaluation and Statistical Testing (Phase 4)}
+\label{sec:evaluation}
+
+\subsubsection{Metrics}
+
+\textbf{Accuracy.} Proportion of responses matching the gold answer under normalised exact match (lowercased, articles and punctuation removed).
 
 \textbf{Context Following Rate (CFR).} Under conflict conditions, the proportion of responses matching the \emph{injected} (substitute) answer:
 \begin{equation}
-    \text{CFR} = \frac{|\{r_i : r_i = a_{\text{injected}}\}|}{|\{r_i : r_i \in \mathcal{R}_{\text{conflict}}\}|}
+    \text{CFR} = \frac{|\{r_i : \textsc{Norm}(r_i) = \textsc{Norm}(a_{\text{injected}})\}|}{|\mathcal{R}_{\text{conflict}}|}
 \end{equation}
 A high CFR indicates susceptibility to misleading context.
 
-\textbf{Parametric Override Rate (POR).} Under conflict conditions, the proportion of responses matching the \emph{original gold} answer---i.e., the correct answer that was replaced in the context:
+\textbf{Parametric Override Rate (POR).} Under conflict conditions, the proportion of responses matching the \emph{original gold} answer:
 \begin{equation}
-    \text{POR} = \frac{|\{r_i : r_i = a_{\text{gold}}\}|}{|\{r_i : r_i \in \mathcal{R}_{\text{conflict}}\}|}
+    \text{POR} = \frac{|\{r_i : \textsc{Norm}(r_i) = \textsc{Norm}(a_{\text{gold}})\}|}{|\mathcal{R}_{\text{conflict}}|}
 \end{equation}
-A high POR indicates reliance on parametric memory. Note that in the conflict condition, accuracy equals POR by definition, since the gold answer is the correct answer and a model can only be ``correct'' by overriding the conflicting context with its parametric knowledge. CFR + POR $\leq 1$, as some responses match neither source, indicating general confusion.
+Accuracy equals POR in conflict conditions by definition; responses matching neither source form an ``other'' rate, so $\text{CFR} + \text{POR} + \text{other} = 1$.
 
-\subsection{Statistical Methods}
+\subsubsection{Statistical Methods}
 
-We report \textbf{95\% Wilson score confidence intervals} for all proportions, which provide better coverage than the normal approximation near 0 or 1. We quantify practical significance using \textbf{Cohen's $h$}:
+All proportions are reported with \textbf{95\% Wilson score confidence intervals} (better coverage than the normal approximation near 0 or 1, the regime most conditions operate in). Effect sizes use \textbf{Cohen's $h$}:
 \begin{equation}
     h = 2 \arcsin(\sqrt{p_1}) - 2 \arcsin(\sqrt{p_2})
 \end{equation}
-interpreted as: $|h| < 0.2$ negligible, $0.2 \leq |h| < 0.5$ small, $0.5 \leq |h| < 0.8$ medium, $|h| \geq 0.8$ large. We use \textbf{chi-square tests} for independence between conditions and \textbf{McNemar's test} for paired comparisons on identical question sets. All $p$-values are two-tailed with $\alpha = 0.05$.
+with $|h|<0.2$ negligible, $<0.5$ small, $<0.8$ medium, $\geq 0.8$ large. Significance uses \textbf{McNemar's paired test} on identical question sets (enabled by the within-subjects design); all $p$-values are two-tailed with $\alpha = 0.05$.
 
 \subsection{Implementation}
+\label{sec:implementation}
 
-The experimental pipeline is implemented in Python with three main components: (1)~\textbf{dataset loaders} that extract and filter bridge/3-hop questions; (2)~a \textbf{conflict injector} that performs entity substitution with type classification; and (3)~an \textbf{experiment runner} with checkpoint/resume support, atomic writes, and graceful shutdown handling. The checkpoint mechanism proved essential, as experiments involving 1,000+ API calls over free-tier endpoints frequently encountered rate limits. All API clients implement a uniform interface with exponential backoff for rate limit handling.
+The pipeline is implemented in Python (3.10+) across three module groups: \texttt{src/data/} (loaders, injector), \texttt{src/inference/} (API clients, prompt/answer templates), \texttt{src/experiments/} (runner).
+
+\subsubsection{Uniform API Client Interface}
+
+All API clients (\texttt{GroqClient}, \texttt{GeminiClient}, \texttt{OpenAIClient}) expose the same signature:
+\begin{lstlisting}[caption={Shared API-client interface. Provider-specific rate-limit parsing and exponential back-off are hidden behind this uniform signature, making the experiment runner model-agnostic.}, label={lst:api}]
+def generate(self, prompt, max_tokens=1024, temperature=0.0, max_retries=5) -> str: ...
+\end{lstlisting}
+Each client parses provider-specific rate-limit errors, extracts the ``retry after'' wait, and sleeps for that duration plus a 5-second buffer. Waits above ten minutes are treated as daily-quota exhaustion and raised as \texttt{RuntimeError}, which the runner catches to checkpoint and exit cleanly.
+
+\subsubsection{Fail-Safe Experiment Runner}
+
+Long runs over free-tier endpoints take 8--20 hours and are routinely interrupted by rate limits, daily-quota resets, and network errors. The runner wraps the per-example function with a checkpoint/resume loop (Algorithm~\ref{alg:runner}) guaranteeing no example is processed twice or silently lost.
+
+\begin{algorithm}[!ht]
+\caption{Fail-Safe Experiment Runner with Checkpoint/Resume}
+\label{alg:runner}
+\begin{algorithmic}[1]
+\Require Examples $E$; per-example function $f$; conditions $C$; target $n$; checkpoint interval $k$
+\Ensure Condition-wise results, metrics
+\State $(R, i_{\text{last}}) \gets \textsc{LoadCheckpoint}()$ \Comment{$(\emptyset, -1)$ if none}
+\If{$|R[C_0]| \geq n$} \Return $R$, \textsc{ComputeMetrics}($R$) \EndIf
+\ForAll{$(i, e) \in \textsc{enumerate}(E)$}
+    \If{$i \leq i_{\text{last}}$} \textbf{continue} \Comment{resume past completed index} \EndIf
+    \State \textbf{try} $\rho \gets f(i, e)$ \Comment{$\rho$ is a dict \{condition: result\}}
+    \State \hspace{1em} \textbf{on} \texttt{Daily} limit error: \textsc{SaveCheckpoint}($R, i{-}1$); \textbf{break}
+    \State \hspace{1em} \textbf{on} other exception: log; \textbf{continue} \Comment{per-example isolation}
+    \If{$\rho = \textsc{null}$} \textbf{continue} \EndIf
+    \ForAll{$c \in C$} \State $R[c].\text{append}(\rho[c])$ \EndFor
+    \If{$(i+1) \bmod k = 0$} \State \textsc{SaveCheckpoint}($R, i$) \EndIf
+\EndFor
+\State $M \gets \textsc{ComputeMetrics}(R)$
+\If{$|R[C_0]| \geq 0.99 \cdot n$} \textsc{SaveResults}($R, M$) \Comment{1\% completion tolerance} \EndIf
+\State \textbf{return} $R, M$
+\end{algorithmic}
+\end{algorithm}
+
+Three engineering decisions are load-bearing: (1)~\textbf{atomic writes} (every checkpoint or results file is written to \texttt{.tmp} then \texttt{os.rename}d, so a crash mid-write cannot corrupt a resume); (2)~\textbf{per-example error isolation} (malformed examples raise inside $f$, are caught and logged, and the loop continues); (3)~\textbf{1\% completion tolerance} ($\lfloor 0.99 n \rfloor$ examples count as complete, absorbing the small fraction of examples lost to injection failure or transient API errors without biasing conclusions---for $n=1{,}000$, completion requires $\geq 990$, whose Wilson interval overlaps the full $n$ by $>99.9\%$).
+
+\subsubsection{Reproducibility Artefacts}
+
+Each run writes three JSON files to \texttt{outputs/results/<model\_id>/}: final metrics and per-example records, a retained checkpoint (never deleted, for audit), and an append-only run history with status, timestamps, and early-stop reasons.

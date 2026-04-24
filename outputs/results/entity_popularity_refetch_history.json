@@ -1,0 +1,38 @@
+[
+  {
+    "run_number": 1,
+    "status": "completed",
+    "n_queried": 10,
+    "recovered_direct": 0,
+    "recovered_opensearch": 0,
+    "still_missing": 10,
+    "start_time": "2026-04-21T21:48:26.167804",
+    "end_time": "2026-04-21T21:48:40.241957",
+    "duration_seconds": 14.1,
+    "detail": ""
+  },
+  {
+    "run_number": 2,
+    "status": "completed",
+    "n_queried": 642,
+    "recovered_direct": 279,
+    "recovered_opensearch": 33,
+    "still_missing": 330,
+    "start_time": "2026-04-21T21:49:08.072222",
+    "end_time": "2026-04-21T22:20:50.042736",
+    "duration_seconds": 1902.0,
+    "detail": ""
+  },
+  {
+    "run_number": 3,
+    "status": "completed",
+    "n_queried": 343,
+    "recovered_direct": 0,
+    "recovered_opensearch": 26,
+    "still_missing": 317,
+    "start_time": "2026-04-21T22:39:31.612909",
+    "end_time": "2026-04-21T22:47:43.890769",
+    "duration_seconds": 492.3,
+    "detail": ""
+  }
+]

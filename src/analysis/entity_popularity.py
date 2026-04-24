@@ -96,15 +96,19 @@ def score_entities(answers: list, batch_delay: float = 0.05) -> dict:
 
 
 def classify_popularity(views: int) -> str:
-    """Classify into High/Medium/Low popularity bins.
+    """Classify into High/Medium/Low/Unknown popularity bins.
 
     Thresholds based on typical Wikipedia page view distributions:
-    - High: > 10,000 avg monthly views (well-known)
-    - Medium: 1,000 - 10,000 (moderately known)
-    - Low: < 1,000 or not found (obscure)
+    - High:    > 10,000 avg monthly views (well-known)
+    - Medium:  1,000 - 10,000 (moderately known)
+    - Low:     < 1,000 (obscure but has a Wikipedia page)
+    - Unknown: no Wikipedia page resolves (exclude from analysis)
+
+    Note: previously -1 was silently coerced to "low"; this contaminated the
+    low bin with API-failure placeholders. See thesis/AUDIT.md A1.
     """
     if views < 0:
-        return "low"  # not found = likely obscure
+        return "unknown"  # no page found — excluded from popularity analysis
     if views >= 10000:
         return "high"
     if views >= 1000:

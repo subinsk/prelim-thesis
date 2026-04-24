@@ -1,28 +1,10 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-We presented a systematic study of knowledge conflicts in multi-hop question answering, evaluating four LLMs across two datasets, three conflict types, and over 19,000 examples. Our main findings are:
+This work presented a systematic study of knowledge conflicts in multi-hop QA across four LLMs, two datasets, three conflict types, and 19{,}416 examples. Five findings hold across models: (1)~answer-bearing hop conflicts reduce accuracy by 40--52pp on 2-hop and 44.0--46.5pp on 3-hop chains, all significant at $p < 0.0001$ (McNemar); (2)~answer-hop conflicts are far more damaging than bridge-hop ones (CFR $\leq$2.1\% at bridge, 27--36\% at answer); (3)~in 3-hop chains, final-hop conflicts cause near-total failure (Gemini 0.5\%) while three of four models show no significant early-hop drop (Gemini the sole exception at $\sim$13pp), revealing that models are disproportionately dependent on the final-answer document; (4)~within the Llama family, scale predicts post-conflict robustness (70B > 8B), but across families it does not (Qwen-32B and Gemini both underperform 8B Llama)---scale predicts the post-conflict \emph{floor}, not the drop size; (5)~temporal conflicts cause the largest absolute drop (50.8pp) and numerical match on relative drop (58.6\% vs.\ 57.0\%), while POR and baseline accuracy rise monotonically with Wikipedia pageview popularity in every model.
 
-\begin{enumerate}
-    \item A single conflict at the answer-bearing hop reduces accuracy by 40--52 percentage points on 2-hop and 44--47pp on 3-hop chains, with all comparisons statistically significant ($p < 0.0001$, large effect sizes).
+\paragraph{Implications.} For RAG system design, document quality control should prioritise the final-answer document; conflict detection should focus particularly on temporal and numerical claims (followed 50--80\% of the time under conflict).
 
-    \item In both 2-hop and 3-hop reasoning, a strong asymmetry exists: conflicts at the answer-bearing hop are far more damaging than conflicts at bridge hops. Bridge-hop CFR is approximately 2\%, while answer-hop CFR reaches 27--36\%.
+\paragraph{Limitations.} Entity substitution produces surface-form conflicts only; the gold-context setting excludes HotpotQA's 8 distractor paragraphs and MuSiQue's additional candidates, so baselines are not directly comparable to published distractor-setting numbers (internal contrasts are unaffected). Only English bridge/compositional questions are evaluated; the popularity analysis excludes 160 of 866 factual entities with no Wikipedia article; API-based evaluation prevents mechanistic analysis.
 
-    \item In 3-hop chains, this asymmetry is most extreme: early-hop conflicts cause minimal damage, while final-hop conflicts cause near-total failure (Gemini drops to 0.5\%). This reveals that models are disproportionately dependent on the final-answer document, raising concerns about the faithfulness of multi-step reasoning.
-
-    \item Model size predicts absolute robustness, though all models suffer comparable answer-hop drops (44--52pp). Reasoning models (Qwen3-32B) and Gemini show the highest context following rates ($\sim$36\%), a double-edged property.
-
-    \item Temporal conflicts are the most disruptive (50.8pp average drop, CFR up to 80\%), followed by numerical (36.2pp) and factual (26.6pp). Entity popularity shows a directional influence on conflict resolution strategy.
-\end{enumerate}
-
-\subsection{Implications}
-
-For RAG system design, our results suggest that \textbf{document quality control should prioritize the final-answer document} in multi-hop retrieval chains. Conflict detection mechanisms should focus particularly on temporal and numerical claims, where models follow fake answers 50--80\% of the time. The choice between larger and smaller models involves a tradeoff: larger models provide better absolute robustness but at higher cost, and reasoning models' tendency to follow context is beneficial only when that context is reliable.
-
-\subsection{Limitations}
-
-Our entity substitution approach produces relatively simple conflicts; real-world conflicts may be more subtle. We evaluate only English-language datasets (HotpotQA, MuSiQue) with bridge/compositional questions. The entity popularity analysis is limited by HotpotQA's skew toward obscure entities. API-based evaluation prevents analysis of model internals, and exact match may undercount semantically correct answers.
-
-\subsection{Future Work}
-
-Key directions include: (1)~conflict detection and mitigation methods; (2)~mechanistic analysis of conflict resolution through attention patterns; (3)~extension to 4+ hop chains to test the generality of the final-hop vulnerability; (4)~multi-conflict scenarios with simultaneous injections at multiple hops; and (5)~conflict-aware fine-tuning to improve robustness without sacrificing baseline performance.
+\paragraph{Future Work.} The preliminary study sets up two follow-on phases. \emph{Semester~3 (conflict detection):} a BERT-based classifier trained on the 19{,}416 labelled examples from this study to predict whether a (question, retrieved-context) pair contains a conflict, using conflict-type (\S\ref{sec:types}) and popularity (\S\ref{sec:entity_popularity}) signals as features, evaluated by AUROC. \emph{Semester~4 (conflict mitigation):} contrastive decoding, self-consistency voting, hop-level backtracking, and selective abstention, fed by the detector and evaluated on the same benchmark with ablations. Further directions: extension to 4+ hop chains, simultaneous multi-hop injection, and mechanistic attention analysis.

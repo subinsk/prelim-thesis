@@ -1,28 +1,42 @@
 \section{Related Work}
 \label{sec:related_work}
 
-\subsection{Multi-Hop Question Answering}
+Table~\ref{tab:related_work} situates this work against the prior studies most relevant to the intersection of multi-hop reasoning and knowledge conflicts. The remainder of the section develops the four research threads summarised there.
 
-Multi-hop QA requires combining information from multiple sources through a chain of reasoning steps. \textbf{HotpotQA}~\citep{yang2018hotpotqa} introduced a large-scale 2-hop benchmark with bridge and comparison questions over Wikipedia. \textbf{MuSiQue}~\citep{trivedi2022musique} extended this to longer chains (2--4 hops) through controlled single-hop composition, ensuring that genuine multi-step reasoning is required.
+\begin{table}[!ht]
+\centering
+\caption{Prior work most relevant to this study, organised by research thread. The final column identifies the specific limitation each line of work leaves open that this work addresses.}
+\label{tab:related_work}
+\small
+\begin{tabular}{p{0.18\textwidth}p{0.20\textwidth}p{0.27\textwidth}p{0.27\textwidth}}
+\toprule
+\textbf{Thread} & \textbf{Representative Work} & \textbf{Key Contribution} & \textbf{Limitation Motivating This Study} \\
+\midrule
+Multi-hop QA benchmarks & \citet{yang2018hotpotqa}; \citet{trivedi2022musique} & 2-hop bridge QA and 3--4-hop compositional QA with per-hop supervision & Evaluate reasoning in \emph{clean} contexts; do not probe robustness to contradicted intermediates \\
+\addlinespace
+Shortcut and faithfulness concerns & \citet{min2019compositional}; \citet{press2023measuring}; \citet{turpin2023language} & Show multi-hop questions are often answered without real composition; CoT can be unfaithful & Identify the concern but do not quantify how much the final-hop document alone drives answers \\
+\addlinespace
+Single-hop knowledge conflicts & \citet{longpre2021entity}; \citet{xie2024adaptive}; \citet{chen2022rich}; \citet{li2023large} & Characterise context-vs-parametric preference, adaptive-vs-stubborn behaviour, and surface-quality effects & All restricted to single-hop QA; no notion of \emph{where in a reasoning chain} the conflict sits \\
+\addlinespace
+RAG robustness & \citet{pan2023risk}; \citet{shi2023large}; \citet{liu2024lost}; \citet{yoran2024making} & Misinformation, irrelevant context, and position-in-context effects in single-pass RAG & Document position is analysed in flat retrieval, not across hops in a reasoning chain \\
+\addlinespace
+Knowledge editing \& memorisation & \citet{meng2022locating}; \citet{mitchell2022fast}; \citet{mallen2023when}; \citet{zhu2023physics} & Locate and edit factual associations; popularity predicts QA accuracy & Popularity effects not yet linked to \emph{conflict resolution strategy} in multi-hop settings \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-A persistent concern is whether models perform genuine compositional reasoning or exploit shortcuts. \citet{min2019compositional} showed that many multi-hop questions can be answered from a single paragraph, bypassing the intended reasoning chain. \citet{jiang2019avoiding} proposed adversarial evaluation to detect such shortcut reasoning. More recently, \citet{press2023measuring} introduced the ``self-ask'' prompting strategy to make intermediate reasoning steps explicit and verifiable. \citet{turpin2023language} showed that chain-of-thought explanations can be unfaithful, with stated intermediate steps not always reflecting the model's actual computation. These findings are directly relevant to our work: if models do not faithfully follow multi-hop chains, conflict injection at different hops may have unexpected effects.
+\subsection{Multi-Hop QA and Reasoning Faithfulness}
+
+HotpotQA~\citep{yang2018hotpotqa} and MuSiQue~\citep{trivedi2022musique} remain the canonical multi-hop benchmarks, the latter using controlled single-hop composition to ensure genuine multi-step reasoning is required. Whether models actually reason compositionally is a persistent concern: \citet{min2019compositional} showed that many multi-hop questions can be answered from a single paragraph, \citet{press2023measuring} introduced self-ask prompting to expose intermediate steps, and \citet{turpin2023language} demonstrated that chain-of-thought explanations can be unfaithful to the model's actual computation. The 3-hop final-hop-dominance finding of this work (\S\ref{sec:3hop}) provides quantitative evidence for exactly the shortcut pattern this line of work has flagged.
 
 \subsection{Knowledge Conflicts in LLMs}
 
-LLMs possess two knowledge sources at inference time: parametric knowledge from pre-training and contextual knowledge from the input prompt. \citet{longpre2021entity} first systematically studied this tension, finding that models generally prefer contextual information but that preference varies with conflict type and model confidence. \citet{xie2024adaptive} characterized conflict resolution strategies as ``adaptive chameleons'' (flexibly following context) versus ``stubborn sloths'' (rigidly relying on parametric memory), showing that resolution depends on the model's confidence and the specificity of the conflict.
-
-\citet{chen2022rich} studied conflicts from multiple knowledge sources, finding that models struggle to reconcile contradictory evidence. \citet{pan2023risk} demonstrated that even small amounts of misleading context significantly degrade factual accuracy, highlighting the practical threat of misinformation in RAG pipelines. \citet{li2023large} showed that LLMs are particularly susceptible to conflicts when the misleading context is coherent and well-written, suggesting that the surface quality of conflicting documents matters.
-
-\citet{neeman2023disentqa} introduced DisentQA, a framework for disentangling parametric and contextual contributions to QA answers, providing fine-grained metrics for conflict resolution. \citet{wang2023resolving} proposed methods for detecting and resolving knowledge conflicts through self-consistency checks. Our work differs from these studies by focusing specifically on how conflicts interact with \emph{multi-hop} reasoning chains, where the position of the conflict within the chain is a key variable.
+\citet{longpre2021entity} first systematically studied the tension between parametric and contextual knowledge, finding that models generally prefer context but that preference varies with conflict type and model confidence. \citet{xie2024adaptive} characterised resolution strategies as ``adaptive chameleons'' versus ``stubborn sloths,'' \citet{chen2022rich} studied multi-source conflicts, and \citet{li2023large} showed that surface-form quality of the conflicting document matters. \citet{pan2023risk} demonstrated that even small amounts of misleading context can significantly degrade factual accuracy. \citet{neeman2023disentqa} and \citet{wang2023resolving} proposed metrics and self-consistency methods for resolution. All of these studies are restricted to single-hop QA, leaving open the question of how conflict position within a reasoning chain affects outcome---the gap this study fills.
 
 \subsection{Retrieval-Augmented Generation}
 
-RAG~\citep{lewis2020retrieval} combines parametric models with non-parametric retrieval, achieving strong performance on knowledge-intensive tasks. \citet{guu2020realm} showed that jointly pre-training the retriever and generator improves knowledge grounding. However, several studies have identified failure modes. \citet{liu2024lost} demonstrated that LLMs struggle to use information from the middle of long contexts (``lost in the middle''), suggesting that document position affects utilization. \citet{shi2023large} showed that irrelevant context can distract models even when the correct information is present. \citet{yoran2024making} proposed methods for making RAG more robust to noisy retrieval through attribution and verification.
+RAG~\citep{lewis2020retrieval,guu2020realm} has established failure modes relevant to this work: \citet{liu2024lost} documented the ``lost in the middle'' effect, where document position within context matters; \citet{shi2023large} showed that irrelevant context distracts even when correct information is present; \citet{yoran2024making} proposed attribution-based robustness methods. For multi-hop RAG specifically, \citet{khattab2021baleen} and \citet{trivedi2023interleaving} studied iterative retrieval. These works analyse position within a flat retrieval window; this work analyses position across hops in a reasoning chain, which the findings here suggest is a substantively different failure surface.
 
-For multi-hop RAG specifically, \citet{khattab2021baleen} and \citet{trivedi2023interleaving} studied iterative retrieval strategies where each hop retrieves new documents conditioned on previous reasoning. Our work complements this line by studying what happens when the documents in such chains contain conflicting information.
+\subsection{Knowledge Editing and Entity Memorisation}
 
-\subsection{Knowledge Editing and Entity Memorization}
-
-The strength of parametric memory for specific entities affects conflict resolution. \citet{meng2022locating} (ROME) demonstrated that factual associations are stored in localizable MLP layers, and that editing these associations changes model behavior. \citet{mitchell2022fast} proposed MEND for efficient knowledge editing. \citet{mallen2023when} directly studied the relationship between entity popularity and model accuracy, finding that models perform substantially better on popular entities---a finding that motivates our entity popularity analysis (Section~\ref{sec:entity_popularity}).
-
-\citet{zhu2023physics} characterized how LLMs store and retrieve factual knowledge, showing that frequently encountered facts are more robustly encoded. This suggests that conflicts involving well-known entities should be harder to introduce, as the model has stronger parametric priors to resist the conflicting context.
+The strength of parametric memory for specific entities directly shapes conflict resolution. \citet{meng2022locating} (ROME) and \citet{mitchell2022fast} (MEND) demonstrated that factual associations are localisable and editable. \citet{mallen2023when} linked entity popularity to QA accuracy, and \citet{zhu2023physics} showed that frequently-encountered facts are more robustly encoded. These results motivate the entity-popularity analysis in \S\ref{sec:entity_popularity}, which confirms that Wikipedia pageview popularity monotonically predicts parametric override rate under conflict across all four models.

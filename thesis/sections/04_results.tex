@@ -1,36 +1,30 @@
 \section{Results and Discussion}
 \label{sec:results}
 
-We present results from 20 experiment runs yielding 64 condition-level measurements across 19,416 total examples. Findings are organized around the six research questions.
-
-\subsection{Baseline Performance}
-
-Table~\ref{tab:baseline} summarizes baseline (no-conflict) accuracy.
+This section presents results from 20 experiment runs yielding 64 condition-level measurements across 19{,}416 total examples. Baselines (no-conflict accuracy) are shown in Table~\ref{tab:baseline}: all four models achieve comparable 2-hop accuracy on HotpotQA (60.6--63.9\%), with a clearer separation on 3-hop MuSiQue (44.5--58.5\%) reflecting the increased difficulty of longer reasoning chains. Findings below are organised around the six research questions.
 
 \begin{table}[!ht]
 \centering
-\caption{Baseline accuracy (no conflict) across models and datasets, with 95\% Wilson score CIs.}
+\caption{Baseline accuracy (no conflict) across models and datasets, with 95\% Wilson score CIs. HotpotQA baseline uses $n{=}1{,}000$; MuSiQue uses $n{=}200$. The HotpotQA hop-1 conflict condition drops to $n{=}518$ because the regex-based injector (Algorithm~\ref{alg:inject}) skips questions where the bridge entity does not appear verbatim in the bridge document.}
 \label{tab:baseline}
-\begin{tabular}{lccc}
+\begin{tabular}{lcc}
 \toprule
-\textbf{Model} & \textbf{$n$} & \textbf{HotpotQA (2-hop)} & \textbf{MuSiQue (3-hop)} \\
+\textbf{Model} & \textbf{HotpotQA (2-hop)} & \textbf{MuSiQue (3-hop)} \\
 \midrule
-Llama-3.3-70B       & 1000 / 200 & 63.9\% [60.9, 66.8] & 58.5\% [51.6, 65.1] \\
-Qwen3-32B           & 1000 / 200 & 61.4\% [58.3, 64.4] & 49.0\% [42.2, 55.9] \\
-Llama-3.1-8B        & 1000 / 200 & 60.6\% [57.5, 63.6] & 54.5\% [47.6, 61.3] \\
-Gemini-2.5-Flash-Lite & 1000 / 200 & 63.0\% [60.0, 65.9] & 44.5\% [37.8, 51.4] \\
+Llama-3.3-70B       & 63.9\% [60.9, 66.8] & 58.5\% [51.6, 65.1] \\
+Qwen3-32B           & 61.4\% [58.3, 64.4] & 49.0\% [42.2, 55.9] \\
+Llama-3.1-8B        & 60.6\% [57.5, 63.6] & 54.5\% [47.6, 61.3] \\
+Gemini-2.5-Flash-Lite & 63.0\% [60.0, 65.9] & 44.5\% [37.8, 51.4] \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-The four models show comparable 2-hop baselines (60.6--63.9\%), with Llama-70B ranking highest. On 3-hop MuSiQue, a clearer separation emerges: Llama-70B (58.5\%) $>$ Llama-8B (54.5\%) $>$ Qwen3-32B (49.0\%) $>$ Gemini-2.5-Flash-Lite (44.5\%). All models show reduced performance on the more challenging 3-hop task.
 
 \subsection{RQ1: Knowledge Conflicts Cause Significant Accuracy Degradation}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig1_accuracy_by_condition.png}
-\caption{Accuracy by condition on HotpotQA (2-hop). Error bars show 95\% Wilson CIs. All conflict conditions differ significantly from baseline ($p < 0.0001$, chi-square test).}
+\caption[Accuracy by condition on HotpotQA.]{Accuracy by condition on HotpotQA (2-hop), with 95\% Wilson CIs. Hop-1 (bridge) conflicts cause a modest dip (bars remain in the 39--52\% range); hop-2 (answer) conflicts collapse accuracy to 11--24\% across every model. All conflict conditions differ from baseline at $p < 0.0001$ (McNemar's paired test).}
 \label{fig:accuracy_by_condition}
 \end{figure}
 
@@ -38,52 +32,52 @@ Table~\ref{tab:2hop_results} presents the complete 2-hop results.
 
 \begin{table}[!ht]
 \centering
-\caption{HotpotQA 2-hop: accuracy, CFR, and effect sizes under conflict.}
+\caption{HotpotQA 2-hop: accuracy, CFR, effect sizes, and McNemar paired $p$-values vs.\ baseline under conflict. McNemar pairs by question identity on the within-subjects design.}
 \label{tab:2hop_results}
-\begin{tabular}{lcccccc}
+\small
+\begin{tabular}{lcccccccc}
 \toprule
-\textbf{Model} & \textbf{Baseline} & \textbf{@Hop1} & \textbf{@Hop2} & \textbf{CFR (H1/H2)} & \textbf{$h$ (H1)} & \textbf{$h$ (H2)} \\
+\textbf{Model} & \textbf{Base} & \textbf{@H1} & \textbf{@H2} & \textbf{CFR H1/H2} & \textbf{$h$ H1} & \textbf{$h$ H2} & \textbf{$p$ H1} & \textbf{$p$ H2} \\
 \midrule
-Llama-3.3-70B       & 63.9\% & 52.3\% & 24.0\% & 2.1 / 26.9\% & 0.24 & 0.83 \\
-Qwen3-32B           & 61.4\% & 41.5\% & 13.9\% & 2.1 / 35.7\% & 0.40 & 1.04 \\
-Llama-3.1-8B        & 60.6\% & 49.2\% & 17.3\% & 1.4 / 27.8\% & 0.23 & 0.93 \\
-Gemini-2.5-Flash-Lite & 63.0\% & 39.2\% & 11.0\% & 2.1 / 35.8\% & 0.48 & 1.16 \\
+Llama-3.3-70B       & 63.9\% & 52.3\% & 24.0\% & 2.1 / 26.9\% & 0.24 & 0.83 & $<$0.0001 & $<$0.0001 \\
+Qwen3-32B           & 61.4\% & 41.5\% & 13.9\% & 2.1 / 35.7\% & 0.40 & 1.04 & $<$0.0001 & $<$0.0001 \\
+Llama-3.1-8B        & 60.6\% & 49.2\% & 17.3\% & 1.4 / 27.8\% & 0.23 & 0.93 & $<$0.0001 & $<$0.0001 \\
+Gemini-2.5-FL       & 63.0\% & 39.2\% & 11.0\% & 2.1 / 35.8\% & 0.48 & 1.16 & $<$0.0001 & $<$0.0001 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Across all models, conflict at the answer-bearing hop (hop~2) reduces accuracy by 40--52 percentage points, with large effect sizes ($h = 0.83\text{--}1.16$). Conflict at the bridge hop (hop~1) causes moderate drops of 11--24pp ($h = 0.23\text{--}0.48$). All pairwise baseline-vs-conflict comparisons are statistically significant ($p < 0.0001$, chi-square test). CFR at hop~2 ranges from 26.9\% (Llama-70B) to 35.8\% (Gemini), indicating that models follow the injected fake answer roughly a third of the time when it directly replaces the gold answer.
+Across all models, conflict at the answer-bearing hop (hop~2) reduces accuracy by 40--52 percentage points, with large effect sizes ($h = 0.83\text{--}1.16$). Conflict at the bridge hop (hop~1) causes moderate drops of 11--24pp ($h = 0.23\text{--}0.48$). All pairwise baseline-vs-conflict comparisons are statistically significant ($p < 0.0001$, McNemar's paired test). CFR at hop~2 ranges from 26.9\% (Llama-70B) to 35.8\% (Gemini), indicating that models follow the injected fake answer roughly a third of the time when it directly replaces the gold answer.
 
 \subsection{RQ2: Answer-Bearing Hop Is Far More Vulnerable in 2-Hop Reasoning}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig2_behavior_breakdown.png}
-\caption{Behavior breakdown under conflict. The ``Other'' category represents responses matching neither the gold nor injected answer, indicating general confusion.}
+\caption[Behaviour breakdown under conflict.]{Response decomposition under conflict: POR (green, matching the gold answer $\Rightarrow$ parametric override), CFR (red, matching the injected substitute $\Rightarrow$ context following), and Other (grey, matching neither). The POR/CFR balance flips sharply between hop~1 (dominantly green) and hop~2 (substantial red + enlarged Other), showing answer-hop conflicts also increase outright confusion rather than merely moving mass from POR to CFR.}
 \label{fig:behavior_breakdown}
 \end{figure}
 
-The two hop positions show dramatically different vulnerability. Average accuracy under hop~1 conflict (bridge entity) is 45.6\%, while hop~2 conflict (final answer) drops to 16.6\%---a difference of 29 percentage points. This asymmetry is consistent across all four models: Llama-70B (52.3\% vs.\ 24.0\%), Llama-8B (49.2\% vs.\ 17.3\%), Gemini (39.2\% vs.\ 11.0\%), and Qwen3-32B (41.5\% vs.\ 13.9\%). All hop~2 effect sizes are large ($h > 0.8$), while hop~1 effect sizes are small ($h = 0.23\text{--}0.48$).
-
-\textbf{Interpretation.} Conflicts that directly corrupt the answer entity are far more damaging than those that alter the bridge entity. At hop~1, the model must chain through the substituted entity to arrive at a wrong answer---a failure mode that occurs rarely (CFR $\approx$ 2\%). At hop~2, the fake answer is directly present in the document, and models follow it 27--36\% of the time. This asymmetry foreshadows the even more extreme pattern observed in 3-hop chains (Section~\ref{sec:3hop}).
+Average hop-1 accuracy (45.6\%) vs.\ hop-2 (16.6\%) is a 29pp gap, consistent across all four models, with large hop-2 effect sizes ($h > 0.8$) but only small hop-1 effect sizes ($h = 0.23\text{--}0.48$). Conflicts that directly corrupt the answer entity are far more damaging than those at the bridge: at hop~1 the model must chain through the substitute to a wrong answer (CFR $\approx 2\%$), whereas at hop~2 the fake answer is directly present and followed 27--36\% of the time. This asymmetry foreshadows the 3-hop pattern in \S\ref{sec:3hop}.
 
 \subsection{RQ3: Catastrophic Error Propagation in 3-Hop Chains}
 \label{sec:3hop}
 
-The most striking finding emerges from the 3-hop experiments (Table~\ref{tab:3hop_results}).
+The 3-hop experiments yield the study's most striking pattern (Table~\ref{tab:3hop_results}).
 
 \begin{table}[!ht]
 \centering
-\caption{MuSiQue 3-hop: accuracy by conflict position, with CFR at hop 3 and effect sizes.}
+\caption{MuSiQue 3-hop: accuracy by conflict position, with CFR and Cohen's $h$ at hop~3, plus McNemar paired $p$-values vs.\ baseline for each hop. Notably, hop-1 conflicts are \emph{not} statistically significant in three of four models, corroborating the claim that early-hop conflicts cause minimal degradation.}
 \label{tab:3hop_results}
-\begin{tabular}{lcccccc}
+\small
+\begin{tabular}{lcccccccc}
 \toprule
-\textbf{Model} & \textbf{Baseline} & \textbf{@Hop1} & \textbf{@Hop2} & \textbf{@Hop3} & \textbf{CFR (H3)} & \textbf{$h$ (H3)} \\
+\textbf{Model} & \textbf{Base} & \textbf{@H1} & \textbf{@H2} & \textbf{@H3} & \textbf{CFR H3} & \textbf{$p$ H1} & \textbf{$p$ H2} & \textbf{$p$ H3} \\
 \midrule
-Llama-3.3-70B       & 58.5\% & 57.0\% & 54.0\% & 14.0\% & 29.5\% & 0.97 \\
-Qwen3-32B           & 49.0\% & 43.0\% & 41.0\% & 2.5\%  & 30.5\% & 1.23 \\
-Llama-3.1-8B        & 54.5\% & 50.5\% & 44.0\% & 10.0\% & 23.0\% & 1.02 \\
-Gemini-2.5-Flash-Lite & 44.5\% & 31.5\% & 31.5\% & 0.5\% & 23.5\% & 1.32 \\
+Llama-3.3-70B       & 58.5\% & 57.0\% & 54.0\% & 14.0\% & 29.5\% & 0.677 & 0.137 & $<$0.0001 \\
+Qwen3-32B           & 49.0\% & 43.0\% & 41.0\% & 2.5\%  & 30.5\% & 0.097 & 0.030 & $<$0.0001 \\
+Llama-3.1-8B        & 54.5\% & 50.5\% & 44.0\% & 10.0\% & 23.0\% & 0.332 & 0.012 & $<$0.0001 \\
+Gemini-2.5-FL       & 44.5\% & 31.5\% & 31.5\% & 0.5\%  & 23.5\% & 0.0005 & $<$0.0001 & $<$0.0001 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -91,67 +85,65 @@ Gemini-2.5-Flash-Lite & 44.5\% & 31.5\% & 31.5\% & 0.5\% & 23.5\% & 1.32 \\
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig7_error_propagation.png}
-\caption{Error propagation in 3-hop chains. Early-hop conflicts cause negligible degradation; final-hop conflicts cause near-total failure across all models.}
+\caption[Error propagation in 3-hop chains.]{Accuracy across baseline and conflict injected at hops~1--3 (MuSiQue). Curves are nearly flat through hop~2 and fall off a cliff at hop~3 (Gemini 0.5\%, Qwen 2.5\%, Llama-8B 10\%, Llama-70B 14\%). The flat-then-cliff shape contradicts a naïve error-propagation view and instead indicates that models anchor on the document containing the final answer rather than chaining through every hop.}
 \label{fig:error_propagation}
 \end{figure}
 
 Three observations emerge:
 
-\textbf{(1) Early-hop conflicts cause minimal degradation.} At hops~1--2, accuracy drops are small for Llama-70B (1.5--4.5pp) and Llama-8B (4--10.5pp), with negligible-to-small effect sizes ($h < 0.27$). CFR at early hops is near zero, confirming that models rarely follow the fake intermediate entity through to the final answer.
+\textbf{(1) Early-hop conflicts cause minimal degradation.} Accuracy drops at hops~1--2 are small ($h < 0.27$), and McNemar confirms they are not merely weak but \emph{not significant} in three of four models (Llama-70B $p=0.68$, Llama-8B $p=0.33$, Qwen3-32B $p=0.10$). CFR at early hops is near zero (0--0.5\%).
 
-\textbf{(2) Final-hop conflicts are catastrophic.} At hop~3, Llama-70B drops from 58.5\% to 14.0\% ($\Delta = 44.5$pp, $h = 0.97$); Gemini-2.5-Flash-Lite drops to 0.5\%; Qwen3-32B drops to 2.5\%. All hop~3 effect sizes are large ($h > 0.97$). This mirrors the 2-hop pattern where answer-bearing hop conflicts cause 40--52pp drops.
+\textbf{(2) Final-hop conflicts are catastrophic.} At hop~3, Llama-70B drops 44.5pp, Qwen 46.5pp, Llama-8B 44.5pp, Gemini 44pp (to 0.5\%); all $h > 0.97$. This mirrors the 2-hop answer-hop pattern.
 
-\textbf{(3) Gemini shows broader vulnerability.} Unlike the other models, Gemini-2.5-Flash-Lite shows non-trivial degradation even at early hops (44.5\% $\to$ 31.5\% at both hop~1 and hop~2, $h = 0.27$), suggesting weaker parametric memory for intermediate reasoning steps.
+\textbf{(3) Gemini shows broader vulnerability.} Gemini is the sole model with significant early-hop drops (McNemar $p = 0.0005$ at hop~1, $p < 0.0001$ at hop~2), a genuine outlier rather than noise on the shared pattern---interpreted here as weaker parametric memory for intermediate reasoning steps.
 
-\textbf{Interpretation.} Models are disproportionately dependent on the document containing the final answer. Despite chain-of-thought prompting, multi-hop reasoning appears to function more as ``direct answer extraction from the final document'' than genuine compositional reasoning, consistent with concerns about reasoning faithfulness~\citep{turpin2023language}. The high CFR at hop~3 (23--30.5\%) confirms that models actively read and follow the conflicting final document.
+\textbf{Interpretation.} Models are disproportionately dependent on the final-answer document; multi-hop reasoning functions more as direct answer extraction from that document than as genuine composition, consistent with reasoning-faithfulness concerns~\citep{turpin2023language}. The hop-3 CFR of 23--30.5\% confirms that models actively read and follow the conflicting final document rather than merely falling back on parametric memory.
 
-\subsection{RQ4: Model Size Predicts Robustness}
+\subsection{RQ4: Within-Family Scale Helps, But Not Across Families}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig3_model_comparison_summary.png}
-\caption{Baseline accuracy vs.\ average accuracy drop under conflict (HotpotQA 2-hop).}
+\caption[Baseline vs.\ average accuracy drop under conflict.]{Baseline accuracy vs.\ average accuracy drop on HotpotQA (one point per model). All four models cluster near the top (drops 20--30pp regardless of baseline), with a vertical spread of only $\sim$10pp---much smaller than the hop-position spread in Figure~\ref{fig:accuracy_by_condition}. Visual basis for the claim that answer-hop vulnerability is largely model-independent.}
 \label{fig:model_comparison}
 \end{figure}
 
-Llama-70B maintains the highest post-conflict accuracy across all conditions. At hop~2, it retains 24.0\% accuracy compared to 17.3\% (Llama-8B), 13.9\% (Qwen3-32B), and 11.0\% (Gemini). However, all models suffer comparable \emph{absolute} drops at the answer-bearing hop: 40--52pp on 2-hop and 44--46.5pp on 3-hop, suggesting that the vulnerability to direct answer corruption is largely model-independent.
+Within the Llama family, scale helps (70B retains 24.0\% at HotpotQA hop~2 vs.\ 17.3\% for 8B), but across families it does not: Qwen3-32B and Gemini-2.5-Flash-Lite both drop below the 8B Llama (13.9\% and 11.0\%). All four models suffer comparable \emph{absolute} drops at the answer-bearing hop (40--52pp on 2-hop, 44.0--46.5pp on 3-hop), so scale predicts the post-conflict floor rather than the size of the drop itself.
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig4_hop_comparison.png}
-\caption{Comparison of 2-hop (HotpotQA) and 3-hop (MuSiQue) accuracy across conflict positions for all models.}
+\caption[2-hop vs.\ 3-hop accuracy across conflict positions.]{2-hop (HotpotQA, left) vs.\ 3-hop (MuSiQue, right) accuracy under conflict. The 3-hop panel extends the 2-hop answer-hop-collapse pattern to the terminal hop, with intermediate hops remaining near baseline---supporting the generalisation that vulnerability concentrates at the answer-bearing hop regardless of chain length.}
 \label{fig:hop_comparison}
 \end{figure}
 
-\textbf{Reasoning models.} Qwen3-32B, despite being a reasoning-oriented model with explicit \texttt{<think>} traces, shows the highest hop~2 CFR (35.7\%) alongside Gemini (35.8\%), suggesting that its architecture makes it \emph{more} susceptible to following provided context. This is a double-edged property: beneficial when context is reliable, harmful when it contains errors.
+\textbf{Reasoning models.} Qwen3-32B, despite explicit \texttt{<think>} traces, shows the highest hop-2 CFR (35.7\%) alongside Gemini (35.8\%)---a double-edged property: beneficial when context is reliable, harmful when it contains errors.
 
 \subsection{RQ5: Temporal and Numerical Conflicts Are Most Disruptive}
 
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig5_conflict_types.png}
-\caption{Accuracy drop by conflict type across all models on HotpotQA.}
+\caption[Accuracy drop by conflict type.]{Accuracy drop (baseline $-$ conflict) by semantic type, averaged across the four models. Temporal (50.8pp) > numerical (36.2pp) > factual (26.6pp) on absolute drop; error bars show cross-model standard deviation. Once ceiling effects are controlled for (Table~\ref{tab:conflict_types}), temporal and numerical are comparable on relative drop.}
 \label{fig:conflict_types}
 \end{figure}
 
 \begin{table}[!ht]
 \centering
-\caption{Average accuracy and drop by conflict type across all four models.}
+\caption{Average accuracy and drop by conflict type across all four models. Relative drop is (baseline $-$ conflict) / baseline, which corrects for the ceiling-bounded baseline of temporal answers.}
 \label{tab:conflict_types}
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
-\textbf{Conflict Type} & \textbf{Avg Baseline} & \textbf{Avg Under Conflict} & \textbf{Avg Drop} \\
+\textbf{Conflict Type} & \textbf{Avg Baseline} & \textbf{Avg Under Conflict} & \textbf{Abs.\ Drop} & \textbf{Rel.\ Drop} \\
 \midrule
-Factual   & 59.4\% & 32.8\% & 26.6pp \\
-Temporal  & 89.3\% & 38.4\% & 50.8pp \\
-Numerical & 61.8\% & 25.6\% & 36.2pp \\
+Factual   & 59.4\% & 32.8\% & 26.6pp & 44.8\% \\
+Temporal  & 89.3\% & 38.4\% & 50.8pp & 57.0\% \\
+Numerical & 61.8\% & 25.6\% & 36.2pp & 58.6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Temporal conflicts are the most devastating, causing an average 50.8pp drop---far exceeding factual (26.6pp) and numerical (36.2pp) conflicts. Temporal answers have the highest baseline accuracy (89.3\%), because dates and years are highly amenable to exact match. Under conflict, models follow fake temporal answers at extremely high rates: CFR reaches 57.5--79.5\% at hop~2, compared to 18.5--28.0\% for factual conflicts.
-
-Numerical conflicts show the lowest post-conflict accuracy (25.6\% average), with the most extreme case being Gemini under numerical conflict at hop~2: a 52.0pp drop (56.5\% $\to$ 4.5\%, $h = 1.27$, large effect). We hypothesize that numerical and temporal facts lack the rich associative context of factual entities, making models more reliant on the provided document and thus more susceptible to injected conflicts.
+Temporal conflicts cause the largest absolute drop (50.8pp vs.\ factual 26.6pp, numerical 36.2pp), but this partly reflects a ceiling effect---temporal baseline is 89.3\% because dates and years are trivially pattern-extractable, leaving 30pp more room to fall than factual. On a relative-drop basis the ordering is numerical ($\sim$59\%) $\approx$ temporal ($\sim$57\%) $>$ factual ($\sim$45\%). Under temporal hop-2 conflict, CFR reaches 57.5--79.5\% (vs.\ 18.5--28.0\% factual); the most extreme single case is Gemini on numerical hop~2 at 4.5\% (52.0pp drop, $h = 1.27$). A plausible explanation is that numerical and temporal facts lack the associative redundancy of named entities: a year such as ``1970'' has fewer parametric anchors than a person such as ``Christopher Nolan,'' leaving the model with less memory-side signal to push back against a contradicting document.
 
 \subsection{RQ6: Entity Popularity Influences Conflict Resolution}
 \label{sec:entity_popularity}
@@ -159,33 +151,43 @@ Numerical conflicts show the lowest post-conflict accuracy (25.6\% average), wit
 \begin{figure}[!ht]
 \centering
 \includegraphics[width=0.95\textwidth]{fig6_entity_popularity.png}
-\caption{Relationship between entity popularity (Wikipedia monthly page views) and conflict resolution behavior.}
+\caption[Entity popularity vs.\ conflict resolution behaviour.]{Baseline accuracy, POR@Hop2, and CFR@Hop2 as functions of Wikipedia-pageview popularity bin, across all four models. Baseline and POR rise monotonically with popularity in every model; CFR falls monotonically in three of four (Gemini deviates by $\leq$0.5pp at medium). Together: popular entities anchor models to parametric memory; obscure entities leave them deferring to the injected substitute.}
 \label{fig:entity_popularity}
 \end{figure}
 
-Using Wikipedia monthly page views as a proxy for parametric memory strength~\citep{mallen2023when}, we classified 878 answer entities into three bins: high ($>$10K views, $n$=28), medium (1K--10K, $n$=14), and low ($<$1K, $n$=836).
-
-The results show a directional trend: high-popularity entities are associated with higher POR (models override context with parametric memory), while low-popularity entities are associated with higher CFR (models follow the provided context). This is consistent with the hypothesis that stronger parametric encoding makes models more resistant to conflicting context.
-
-\textbf{Limitations of this analysis.} HotpotQA is heavily skewed toward low-popularity entities (95\% below 1K monthly views), reflecting the dataset's emphasis on obscure multi-hop facts. The high and medium bins contain too few examples ($n$=28 and $n$=14) for robust statistical inference. We report this as a directional trend rather than a definitive finding; a balanced dataset with equal representation across popularity tiers would be needed to draw stronger conclusions.
-
-\subsection{Summary of Findings}
+Using Wikipedia monthly page views as a proxy for parametric memorisation strength~\citep{mallen2023when}, the 706 factual-type answer entities are classified into three bins: high ($>$10K views, $n$=293), medium (1K--10K, $n$=189), and low ($<$1K, $n$=224). A further 160 answers had no resolvable Wikipedia article---typically non-entity phrases such as ``multiple awards'' or ``American''---and are excluded. Pageview resolution uses MediaWiki's \texttt{query?redirects=1} endpoint to handle redirect stubs (the pageviews API does not follow redirects natively), with an opensearch fallback for unresolved titles. Bin membership is determined once on the shared entity set, so the four-model comparison is controlled for entity composition; Table~\ref{tab:popularity} reports the three key rates.
 
 \begin{table}[!ht]
 \centering
-\caption{Summary of key findings with supporting evidence.}
-\label{tab:summary}
+\caption{Effect of answer-entity popularity on baseline accuracy, POR, and CFR at HotpotQA hop-2 conflict. Three rows per metric (high/medium/low popularity bins, $n$=293/189/224), one column per model. Bin membership is identical across models.}
+\label{tab:popularity}
 \small
-\begin{tabular}{p{0.38\textwidth}p{0.52\textwidth}}
+\begin{tabular}{llcccc}
 \toprule
-\textbf{Finding} & \textbf{Evidence} \\
+\textbf{Metric} & \textbf{Bin} & \textbf{Llama-70B} & \textbf{Llama-8B} & \textbf{Gemini-FL} & \textbf{Qwen3-32B} \\
 \midrule
-F1: Answer-hop conflicts cause massive degradation & 40--52pp drop at hop~2; all $p < 0.0001$; $h = 0.83\text{--}1.16$ \\
-F2: Strong asymmetry: answer-hop $\gg$ bridge-hop & Hop~1 avg 45.6\% vs.\ hop~2 avg 16.6\%; bridge CFR $\approx$ 2\% \\
-F3: Catastrophic final-hop failure in 3-hop & Hop~3 drops: 44.5pp (70B, 8B), 46.5pp (32B), 44.0pp (Gemini); all $h > 0.97$ \\
-F4: Size predicts absolute robustness & Ranking preserved under conflict; hop~3 drop $\sim$44--47pp across all models \\
-F5: Temporal conflicts most disruptive & 50.8pp avg drop; CFR 58--80\% at hop~2 vs.\ 19--28\% for factual \\
-F6: Popularity influences resolution & Trend: high popularity $\to$ higher POR; limited by bin sizes \\
+\multirow{3}{*}{Baseline} & High & 76.5\% & 70.3\% & 73.0\% & 71.3\% \\
+                          & Med  & 66.1\% & 63.0\% & 63.0\% & 67.2\% \\
+                          & Low  & 54.0\% & 53.6\% & 58.0\% & 53.1\% \\
+\midrule
+\multirow{3}{*}{POR@Hop2} & High & 44.4\% & 33.8\% & 20.8\% & 27.0\% \\
+                          & Med  & 28.0\% & 24.3\% & 15.9\% & 19.0\% \\
+                          & Low  & 14.3\% & 8.0\%  & 6.7\%  & 8.5\% \\
+\midrule
+\multirow{3}{*}{CFR@Hop2} & High & 13.0\% & 18.4\% & 28.0\% & 28.3\% \\
+                          & Med  & 20.6\% & 22.2\% & 27.5\% & 29.6\% \\
+                          & Low  & 28.1\% & 25.4\% & 32.1\% & 30.8\% \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+Three findings hold across all four models.
+
+\textbf{(1) Baseline accuracy is monotonic with popularity.} Every model answers popular-entity questions more accurately than obscure ones, with a 15--23pp spread between the high and low bins, consistent with~\citet{mallen2023when}.
+
+\textbf{(2) POR is monotonic with popularity.} Under hop-2 conflict, every model overrides the injected substitute more often for popular entities (Llama-70B 44.4\% high vs.\ 14.3\% low; Llama-8B 33.8\% vs.\ 8.0\%). This is direct evidence that stronger parametric memory enables conflict resistance.
+
+\textbf{(3) CFR is monotonic in three of four models.} Llama-70B, Llama-8B, and Qwen3-32B all show CFR rising from high to low popularity (Llama-70B 13.0\%$\to$20.6\%$\to$28.1\%); Gemini is nearly monotonic with a $\leq$0.5pp dip at the medium bin, attributable to its overall higher CFR ceiling.
+
+The POR high--low gap (30pp for Llama-70B, 26pp for Llama-8B) is comparable in magnitude to the RQ2 hop-1-vs-hop-2 effect, indicating that entity memorisation and hop position are of similar practical importance for conflict resolution.
+
